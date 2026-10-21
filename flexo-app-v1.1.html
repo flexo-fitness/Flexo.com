@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="es"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<title>FLEXO | Entrena con intención</title>
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;800;900&family=Instrument+Sans:wght@400;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root{--bg:#F2F4EC;--s:#E4E8D9;--tx:#0B0C0A;--mu:#565B4D;--ln:#cfd4c2;--ac:#456F0C;--bb:#0B0C0A;--bt:#C7FF4A;--er:#B3341A}
+@media(prefers-color-scheme:dark){:root{--bg:#0B0C0A;--s:#161813;--tx:#F2F4EC;--mu:#8A8F80;--ln:#2a2d25;--ac:#C7FF4A;--bb:#C7FF4A;--bt:#0B0C0A;--er:#FF7A59}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--tx);font:400 16px/1.55 'Instrument Sans',system-ui,sans-serif;padding:env(safe-area-inset-top,0) 0 calc(76px + env(safe-area-inset-bottom,0))}
+h1,h2,h3,.wm,.num{font-family:Unbounded,sans-serif}
+.wm{font-weight:900;letter-spacing:-.05em;font-size:26px}.wm i{display:inline-block;width:.2em;height:.2em;border-radius:50%;background:var(--ac);margin-left:.05em}
+h2{font-weight:800;font-size:24px;letter-spacing:-.03em;margin:0 0 6px;line-height:1.1}h3{font-weight:500;font-size:15px;margin:0 0 8px}
+.w{max-width:720px;margin:0 auto;padding:0 18px}
+.top{display:flex;justify-content:space-between;align-items:center;padding:16px 0}
+.mu{color:var(--mu);font-size:14px}.er{color:var(--er)}.ok{color:var(--ac)}
+.c{background:var(--s);border:1px solid var(--ln);border-radius:22px;padding:20px;margin:0 0 14px}
+label{display:block;font-weight:600;font-size:13px;margin:12px 0 5px}
+input,select,textarea{width:100%;font:inherit;color:var(--tx);background:var(--bg);border:1px solid var(--ln);border-radius:14px;padding:12px 14px}
+textarea{min-height:72px;resize:vertical}input[type=range]{padding:0;accent-color:var(--ac)}
+.row{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px}
+.btn{font:800 14px Unbounded,sans-serif;padding:14px 22px;border-radius:99px;border:2px solid var(--bb);background:var(--bb);color:var(--bt);cursor:pointer}
+.btn.o{background:transparent;color:var(--tx);border-color:var(--ln)}.btn.s{font-size:12px;padding:9px 14px}
+.btn:disabled{opacity:.5}
+:focus-visible{outline:3px solid var(--ac);outline-offset:3px}
+.acts{display:flex;flex-wrap:wrap;gap:10px;margin-top:16px}
+nav{position:fixed;left:0;right:0;bottom:0;background:var(--bg);border-top:1px solid var(--ln);display:flex;justify-content:space-around;padding:8px 6px calc(8px + env(safe-area-inset-bottom,0))}
+nav button{background:none;border:0;color:var(--mu);font:600 12px 'Instrument Sans';display:grid;justify-items:center;gap:2px;padding:4px 8px;cursor:pointer}
+nav button[aria-current=page]{color:var(--ac)}
+nav svg{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.chips{display:flex;flex-wrap:wrap;gap:8px}.chips label{margin:0;font-weight:600;border:1px solid var(--ln);border-radius:99px;padding:8px 14px;cursor:pointer;display:flex;gap:8px;align-items:center}
+.chips input{width:auto;margin:0}
+.sp{display:grid;grid-template-columns:1fr 1fr;gap:8px;align-items:center;margin-bottom:8px}.sp label{margin:0;display:flex;gap:8px;align-items:center}.sp input{width:auto}
+.bar{height:10px;border-radius:99px;background:var(--ln);overflow:hidden;margin:10px 0 6px}.bar b{display:block;height:100%;background:var(--ac);border-radius:99px}
+.num{font-weight:900;font-size:40px;letter-spacing:-.04em;color:var(--ac);line-height:1}
+.hid{display:none!important}.msg{min-height:22px;font-size:14px;margin-top:10px}
+.it{display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:6px;margin-bottom:6px}.it input,.it select{padding:10px 8px}
+.wb{display:grid;grid-template-columns:70px 1fr 56px;gap:8px;align-items:center;font-size:13px;margin:8px 0}.wb .bar{margin:0}
+.ses{border-top:1px solid var(--ln);padding:12px 0}.ses:first-child{border:0}
+.pill{font-size:12px;font-weight:600;border:1px solid var(--ln);border-radius:99px;padding:2px 10px;margin-right:6px}
+@media(max-width:480px){.it{grid-template-columns:1fr 1fr}.it input:first-child{grid-column:1/-1}}
+@media(prefers-reduced-motion:no-preference){.bar b{transition:width .6s cubic-bezier(.22,1,.36,1)}}
+</style></head><body>
+<div class="w">
+<div class="top"><div class="wm">FLEXO<i></i></div><button class="btn o s hid" id="out">Cerrar sesión</button></div>
+
+<main id="auth" class="hid">
+<h2>Entrena con intención.</h2><p class="mu">Inicia sesión o crea tu cuenta para guardar tus metas y sesiones.</p>
+<div class="c"><label for="em">Correo</label><input id="em" type="email" autocomplete="email">
+<label for="pw">Contraseña</label><input id="pw" type="password" autocomplete="current-password" minlength="6">
+<div class="acts"><button class="btn" id="login">Iniciar sesión</button><button class="btn o" id="signup">Crear cuenta</button></div><div class="msg" id="am" role="status"></div></div>
+</main>
+
+<main id="app" class="hid">
+<section id="v-hoy"></section>
+
+<section id="v-metas" class="hid">
+<h2>Metas</h2><p class="mu">Una meta tiene un punto de partida, un objetivo medible y una fecha.</p>
+<div id="goals"></div>
+<div class="c"><h3>Nueva meta</h3>
+<div class="row"><div><label for="gs">Deporte</label><select id="gs"></select></div><div><label for="gm">Métrica</label><select id="gm"></select></div></div>
+<div id="gc" class="row hid"><div><label for="gcn">Nombre</label><input id="gcn" placeholder="Ej. Dominadas"></div><div><label for="gcu">Unidad</label><input id="gcu" placeholder="Ej. rep"></div><div><label for="gcd">Mejora si</label><select id="gcd"><option value="1">Sube</option><option value="0">Baja</option></select></div></div>
+<div class="row"><div><label for="gb">Hoy estás en <span id="gu1" class="mu"></span></label><input id="gb" type="number" step="any" inputmode="decimal"></div><div><label for="gt">Objetivo <span id="gu2" class="mu"></span></label><input id="gt" type="number" step="any" inputmode="decimal"></div><div><label for="gd">Fecha límite</label><input id="gd" type="date"></div></div>
+<div class="acts"><button class="btn" id="gsave">Crear meta</button></div><div class="msg" id="gmsg" role="status"></div></div>
+</section>
+
+<section id="v-registrar" class="hid">
+<h2 id="rt">Registrar sesión</h2><p class="mu">Anota lo que hiciste. Los campos cambian según el deporte.</p>
+<div class="c">
+<div class="row"><div><label for="rd">Fecha</label><input id="rd" type="date"></div><div><label for="rs">Deporte</label><select id="rs"></select></div></div>
+<div class="row"><div><label for="rm">Duración (min)</label><input id="rm" type="number" min="1" inputmode="numeric"></div><div><label for="rg">Meta vinculada</label><select id="rg"></select></div></div>
+<label for="rr">Esfuerzo percibido (RPE): <b id="rrv">5</b> de 10</label><input id="rr" type="range" min="1" max="10" value="5">
+<div class="mu" id="rload"></div>
+<div id="rf"></div>
+<label for="rn">Notas</label><textarea id="rn"></textarea>
+<div class="acts"><button class="btn" id="rsave">Guardar sesión</button><button class="btn o hid" id="rcancel">Cancelar edición</button></div><div class="msg" id="rmsg" role="status"></div></div>
+</section>
+
+<section id="v-progreso" class="hid"></section>
+<section id="v-historial" class="hid"></section>
+
+<section id="v-perfil" class="hid">
+<h2>Tu perfil</h2><p class="mu">Con deporte y días disponibles ya puedes empezar. El resto es opcional.</p>
+<div class="c"><h3>Deportes y nivel</h3><div id="psp"></div>
+<label>Días disponibles</label><div class="chips" id="pd"></div>
+<label for="pe">Equipamiento</label><input id="pe" placeholder="Ej. mancuernas, bicicleta, acceso a piscina">
+<label for="pl">Limitaciones o lesiones (opcional)</label><textarea id="pl"></textarea>
+<div class="mu">Solo tú puedes verlo. FLEXO registra datos y no sustituye a profesionales de la salud: escucha a tu cuerpo.</div>
+<div class="acts"><button class="btn" id="psave">Guardar perfil</button></div><div class="msg" id="pmsg" role="status"></div></div>
+</section>
+
+<nav id="nav" class="hid" aria-label="Secciones"></nav>
+</main>
+</div>
+<script>
+const sb=supabase.createClient("https://glomtdofnkayvwslxqko.supabase.co","sb_publishable_uI9eipYEQzweVr9BgWNGAA_drTHHNzZ",{auth:{persistSession:true,autoRefreshToken:true}});
+const $=id=>document.getElementById(id),esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const SPORTS={gimnasio:{n:"Gimnasio",gym:1},running:{n:"Running",f:[["km","Distancia (km)"],["min","Tiempo (min)"]]},natacion:{n:"Natación",f:[["vueltas","Vueltas"],["largo","Largo de piscina (m)"],["min","Tiempo (min)"]]},ciclismo:{n:"Ciclismo",f:[["km","Distancia (km)"],["min","Tiempo (min)"]]},yoga:{n:"Yoga y movilidad",f:[]},otro:{n:"Otro",f:[]}};
+const METRICS={gimnasio:[["1RM sentadilla","kg",1],["1RM press de banca","kg",1],["1RM peso muerto","kg",1]],running:[["Tiempo en 5 km","min",0],["Tiempo en 10 km","min",0],["Tiempo en 21 km","min",0]],natacion:[["Tiempo en 400 m","min",0]],ciclismo:[["Tiempo en 20 km","min",0]]};
+const LEVELS=["principiante","intermedio","avanzado"],DAYS=["L","M","X","J","V","S","D"];
+const TABS=[["hoy","Hoy","M4 11l8-7 8 7v9H4z"],["metas","Metas","M12 3a9 9 0 100 18 9 9 0 000-18zM12 8a4 4 0 100 8 4 4 0 000-8z"],["registrar","Registrar","M12 5v14M5 12h14"],["progreso","Progreso","M3 17c3 0 4-6 8-6s4 4 9-2"],["historial","Historial","M5 7h14M5 12h14M5 17h9"]];
+let U=null,profile=null,goals=[],sessions=[],editId=null,view="hoy";
+const iso=d=>d.toISOString().slice(0,10),today=()=>iso(new Date());
+const fmtD=s=>new Date(s+"T12:00:00").toLocaleDateString("es",{day:"numeric",month:"short",year:"numeric"});
+const num=v=>v===""||v==null?null:Number(v),msg=(id,t,k)=>{const e=$(id);e.textContent=t;e.className="msg "+(k||"")};
+const mySports=()=>profile?.sports?.length?profile.sports.map(s=>s.sport):Object.keys(SPORTS);
+const opts=(arr,sel)=>arr.map(([v,t])=>`<option value="${esc(v)}"${v===sel?" selected":""}>${esc(t)}</option>`).join("");
+const sportOpts=sel=>opts(mySports().map(k=>[k,SPORTS[k].n]),sel);
+
+/* ---------- Acceso ---------- */
+async function boot(){const{data}=await sb.auth.getSession();data.session?enter(data.session.user):show("auth")}
+function show(w){$("auth").classList.toggle("hid",w!=="auth");$("app").classList.toggle("hid",w!=="app");$("out").classList.toggle("hid",w!=="app")}
+$("login").onclick=async()=>{const{data,error}=await sb.auth.signInWithPassword({email:$("em").value.trim(),password:$("pw").value});error?msg("am","No se pudo iniciar sesión: revisa el correo y la contraseña.","er"):enter(data.user)};
+$("signup").onclick=async()=>{const{data,error}=await sb.auth.signUp({email:$("em").value.trim(),password:$("pw").value});if(error)return msg("am",error.message,"er");data.session?enter(data.user):msg("am","Cuenta creada. Confirma tu correo y luego inicia sesión.","ok")};
+$("out").onclick=async()=>{await sb.auth.signOut();U=null;show("auth")};
+async function enter(u){U=u;show("app");await load();go(profile?"hoy":"perfil")}
+async function load(){
+ const[p,g,s]=await Promise.all([sb.from("flexo_profiles").select("*").eq("user_id",U.id).maybeSingle(),sb.from("flexo_goals").select("*").order("due_date"),sb.from("flexo_sessions").select("*,flexo_session_items(*)").order("session_date",{ascending:false})]);
+ profile=p.data;goals=g.data||[];sessions=s.data||[];
+}
+
+/* ---------- Navegación ---------- */
+$("nav").innerHTML=TABS.map(([k,t,d])=>`<button data-v="${k}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="${d}"/></svg>${t}</button>`).join("");
+$("nav").onclick=e=>{const b=e.target.closest("button");if(b)go(b.dataset.v)};
+function go(v){view=v;["hoy","metas","registrar","progreso","historial","perfil"].forEach(k=>$("v-"+k).classList.toggle("hid",k!==v));
+ $("nav").classList.toggle("hid",!profile);
+ document.querySelectorAll("nav button").forEach(b=>b.dataset.v===v?b.setAttribute("aria-current","page"):b.removeAttribute("aria-current"));
+ ({hoy:renderHoy,metas:renderGoals,registrar:initReg,progreso:renderProg,historial:renderHist,perfil:renderPerfil})[v]();window.scrollTo(0,0)}
+
+/* ---------- Perfil ---------- */
+function renderPerfil(){
+ const cur=profile?.sports||[];
+ $("psp").innerHTML=Object.entries(SPORTS).map(([k,s])=>{const c=cur.find(x=>x.sport===k);return`<div class="sp"><label><input type="checkbox" value="${k}" ${c?"checked":""}> ${s.n}</label><select aria-label="Nivel en ${s.n}" data-l="${k}">${LEVELS.map(l=>`<option ${c?.level===l?"selected":""}>${l}</option>`).join("")}</select></div>`}).join("");
+ const ds=profile?.days||[];$("pd").innerHTML=DAYS.map((d,i)=>`<label><input type="checkbox" value="${i+1}" ${ds.includes(i+1)?"checked":""}>${d}</label>`).join("");
+ $("pe").value=profile?.equipment||"";$("pl").value=profile?.limitations||"";
+}
+$("psave").onclick=async()=>{
+ const sports=[...$("psp").querySelectorAll("input:checked")].map(i=>({sport:i.value,level:$("psp").querySelector(`[data-l="${i.value}"]`).value}));
+ const days=[...$("pd").querySelectorAll("input:checked")].map(i=>+i.value);
+ if(!sports.length||!days.length)return msg("pmsg","Elige al menos un deporte y un día disponible.","er");
+ const row={user_id:U.id,sports,days,equipment:$("pe").value.trim()||null,limitations:$("pl").value.trim()||null,updated_at:new Date().toISOString()};
+ const{error}=await sb.from("flexo_profiles").upsert(row);if(error)return msg("pmsg","No se pudo guardar: "+error.message,"er");
+ profile=row;msg("pmsg","Perfil guardado.","ok");go("hoy")};
+
+/* ---------- Metas ---------- */
+const progress=g=>{const p=(g.current_value-g.base_value)/(g.target_value-g.base_value);return Math.max(0,Math.min(1,p))};
+function renderGoals(){
+ const act=goals.filter(g=>g.status==="activa"),done=goals.filter(g=>g.status!=="activa");
+ $("goals").innerHTML=(act.length?act.map(goalCard).join(""):`<div class="c"><b>Aún no tienes metas activas.</b><p class="mu" style="margin:6px 0 0">Crea la primera abajo para ver tu avance.</p></div>`)+(done.length?`<h3>Cerradas</h3>`+done.map(goalCard).join(""):"");
+ const sp=mySports();$("gs").innerHTML=sportOpts();fillMetrics()}
+function goalCard(g){const d=Math.ceil((new Date(g.due_date+"T12:00:00")-new Date())/864e5),p=Math.round(progress(g)*100);
+ return`<div class="c"><h3>${esc(g.metric)}: ${g.base_value} → ${g.target_value} ${esc(g.unit)}</h3><div class="num">${p}%</div><div class="bar"><b style="width:${p}%"></b></div>
+ <div class="mu">Hoy: ${g.current_value} ${esc(g.unit)} · ${g.status==="activa"?(d>=0?`faltan ${d} días`:`venció hace ${-d} días`):g.status} · ${fmtD(g.due_date)}</div>
+ ${g.status==="activa"?`<div class="acts"><button class="btn s" data-a="cur" data-id="${g.id}">Actualizar valor actual</button><button class="btn o s" data-a="lograda" data-id="${g.id}">Marcar lograda</button><button class="btn o s" data-a="archivada" data-id="${g.id}">Archivar</button></div>`:""}</div>`}
+$("goals").onclick=async e=>{const b=e.target.closest("button");if(!b)return;const g=goals.find(x=>x.id===b.dataset.id);let patch;
+ if(b.dataset.a==="cur"){const v=num(prompt(`Valor actual (${g.unit})`,g.current_value));if(v==null||isNaN(v))return;patch={current_value:v}}else patch={status:b.dataset.a};
+ const{error}=await sb.from("flexo_goals").update(patch).eq("id",g.id);if(!error){Object.assign(g,patch);renderGoals()}};
+function fillMetrics(){const m=METRICS[$("gs").value]||[];$("gm").innerHTML=m.map((x,i)=>`<option value="${i}">${x[0]}</option>`).join("")+`<option value="x">Otra métrica</option>`;metricChange()}
+function metricChange(){const x=$("gm").value==="x";$("gc").classList.toggle("hid",!x);const m=(METRICS[$("gs").value]||[])[$("gm").value];$("gu1").textContent=$("gu2").textContent=m?`(${m[1]})`:""}
+$("gs").onchange=fillMetrics;$("gm").onchange=metricChange;
+$("gsave").onclick=async()=>{
+ const sport=$("gs").value,custom=$("gm").value==="x",m=custom?[$("gcn").value.trim(),$("gcu").value.trim(),+$("gcd").value]:METRICS[sport][$("gm").value];
+ const b=num($("gb").value),t=num($("gt").value),d=$("gd").value;
+ if(!m[0]||!m[1]||b==null||t==null||!d)return msg("gmsg","Completa la métrica, tu punto de partida, el objetivo y la fecha.","er");
+ if(d<=today())return msg("gmsg","La fecha límite debe ser posterior a hoy.","er");
+ if(m[2]?t<=b:t>=b)return msg("gmsg",m[2]?"En esta métrica mejorar es subir: el objetivo debe ser mayor que tu punto de partida.":"En esta métrica mejorar es bajar: el objetivo debe ser menor que tu punto de partida.","er");
+ const{data,error}=await sb.from("flexo_goals").insert({sport,metric:m[0],unit:m[1],base_value:b,target_value:t,current_value:b,higher_is_better:!!m[2],due_date:d}).select().single();
+ if(error)return msg("gmsg","No se pudo crear la meta: "+error.message,"er");
+ goals.push(data);goals.sort((x,y)=>x.due_date.localeCompare(y.due_date));["gb","gt","gd"].forEach(i=>$(i).value="");msg("gmsg","Meta creada.","ok");renderGoals()};
+
+/* ---------- Registro ---------- */
+function initReg(){
+ if(!editId){$("rd").value=today();$("rm").value="";$("rr").value=5;$("rn").value="";$("rt").textContent="Registrar sesión";$("rcancel").classList.add("hid")}
+ const keep=$("rs").value;$("rs").innerHTML=sportOpts(keep);regSport();rpeLoad()}
+function regSport(){const sp=$("rs").value,s=SPORTS[sp];
+ $("rg").innerHTML=`<option value="">Sin meta</option>`+goals.filter(g=>g.status==="activa"&&g.sport===sp).map(g=>`<option value="${g.id}">${esc(g.metric)}</option>`).join("");
+ if(s.gym)$("rf").innerHTML=`<h3 style="margin-top:16px">Series</h3><div id="its"></div><button class="btn o s" id="addset" type="button">Añadir serie</button>`,addSet();
+ else $("rf").innerHTML=s.f.length?`<div class="row" style="margin-top:4px">${s.f.map(([k,t])=>`<div><label for="f-${k}">${t}</label><input id="f-${k}" data-k="${k}" type="number" step="any" inputmode="decimal"></div>`).join("")}</div><div class="mu" id="pace"></div>`:"";
+ const a=$("addset");if(a)a.onclick=()=>addSet(true);
+ $("rf").oninput=()=>{const km=num($("f-km")?.value),mi=num($("f-min")?.value),p=$("pace");if(p)p.textContent=km&&mi?`Ritmo: ${(mi/km).toFixed(2)} min/km`:""}}
+function addSet(copy){const w=$("its"),last=w.lastElementChild,d=document.createElement("div");d.className="it";
+ d.innerHTML=`<input aria-label="Ejercicio" placeholder="Ejercicio" value="${esc(copy&&last?last.children[0].value:"")}"><input aria-label="Repeticiones" placeholder="Reps" type="number" inputmode="numeric"><input aria-label="Peso" placeholder="Peso" type="number" step="any" inputmode="decimal"><select aria-label="Unidad"><option>kg</option><option>lb</option></select>`;w.appendChild(d)}
+const rpeLoad=()=>{$("rrv").textContent=$("rr").value;const m=num($("rm").value);$("rload").textContent=m?`Carga de la sesión: ${m*$("rr").value} (duración × RPE)`:""};
+$("rr").oninput=$("rm").oninput=rpeLoad;$("rs").onchange=regSport;
+$("rsave").onclick=async()=>{
+ const sp=$("rs").value,s=SPORTS[sp],dur=parseInt($("rm").value);
+ if(!$("rd").value||!dur||dur<1)return msg("rmsg","Indica la fecha y una duración mayor a 0.","er");
+ const items=[];
+ if(s.gym)$("its").querySelectorAll(".it").forEach((r,i)=>{const[n,re,w,u]=[...r.children].map(x=>x.value);if(n.trim()&&re)items.push({name:n.trim(),data:{reps:+re,weight:w===""?null:+w,unit:u}})});
+ else if(s.f.length){const data={};$("rf").querySelectorAll("[data-k]").forEach(i=>{if(i.value!=="")data[i.dataset.k]=+i.value});if(Object.keys(data).length)items.push({name:s.n,data})}
+ if(s.gym&&!items.length)return msg("rmsg","Añade al menos una serie con ejercicio y repeticiones.","er");
+ const row={session_date:$("rd").value,sport:sp,duration_min:dur,rpe:+$("rr").value,notes:$("rn").value.trim()||null,goal_id:$("rg").value||null};
+ $("rsave").disabled=true;let sid=editId,error;
+ if(editId){({error}=await sb.from("flexo_sessions").update(row).eq("id",editId));if(!error)await sb.from("flexo_session_items").delete().eq("session_id",editId)}
+ else{const r=await sb.from("flexo_sessions").insert(row).select().single();error=r.error;sid=r.data?.id}
+ if(!error&&items.length)({error}=await sb.from("flexo_session_items").insert(items.map(i=>({...i,session_id:sid}))));
+ $("rsave").disabled=false;if(error)return msg("rmsg","No se pudo guardar: "+error.message,"er");
+ editId=null;await load();msg("rmsg","");go("historial")};
+$("rcancel").onclick=()=>{editId=null;go("historial")};
+
+/* ---------- Hoy, Progreso, Historial ---------- */
+const wk=s=>{const d=new Date(s+"T12:00:00");d.setDate(d.getDate()-((d.getDay()+6)%7));return iso(d)};
+function renderHoy(){
+ const act=goals.filter(g=>g.status==="activa"),w=wk(today()),sw=sessions.filter(s=>wk(s.session_date)===w),load=sw.reduce((a,s)=>a+s.load,0),last=sessions[0];
+ const days=profile?.days?.length||0;
+ $("v-hoy").innerHTML=`<h2>Hoy</h2>
+ ${act.length?act.map(g=>`<div class="c"><h3>${esc(g.metric)}</h3><div class="num">${Math.round(progress(g)*100)}%</div><div class="bar"><b style="width:${progress(g)*100}%"></b></div><div class="mu">${g.current_value} de ${g.target_value} ${esc(g.unit)} · hasta el ${fmtD(g.due_date)}</div></div>`).join(""):`<div class="c"><b>Define tu primera meta.</b><p class="mu">Con un punto de partida, un objetivo y una fecha, tus sesiones tienen dirección.</p><button class="btn s" data-go="metas">Crear meta</button></div>`}
+ <div class="c"><h3>Esta semana</h3><div class="row"><div><div class="num">${sw.length}</div><div class="mu">sesiones${days?` de ${days} días disponibles`:""}</div></div><div><div class="num">${load}</div><div class="mu">de carga (duración × RPE)</div></div></div>
+ ${last?`<p class="mu" style="margin:14px 0 0">Última sesión: ${SPORTS[last.sport]?.n||last.sport}, ${fmtD(last.session_date)}.</p>`:""}</div>
+ <div class="acts"><button class="btn" data-go="registrar">Registrar sesión</button><button class="btn o" data-go="perfil">Editar perfil</button></div>
+ <p class="mu" style="margin-top:26px">FLEXO registra y analiza tus datos. No prescribe rutinas ni sustituye a entrenadores o profesionales de la salud. Escucha a tu cuerpo.</p>`}
+document.addEventListener("click",e=>{const b=e.target.closest("[data-go]");if(b)go(b.dataset.go)});
+function renderProg(){
+ const ws=[];let d=new Date(wk(today())+"T12:00:00");for(let i=0;i<6;i++){ws.unshift(iso(d));d.setDate(d.getDate()-7)}
+ const by=ws.map(w=>{const x=sessions.filter(s=>wk(s.session_date)===w);return{w,n:x.length,min:x.reduce((a,s)=>a+s.duration_min,0),load:x.reduce((a,s)=>a+s.load,0)}});
+ const mx=Math.max(1,...by.map(x=>x.load));
+ $("v-progreso").innerHTML=`<h2>Progreso</h2><p class="mu">Se calcula solo a partir de tus sesiones. Las gráficas por meta llegan en la siguiente fase.</p>
+ <div class="c"><h3>Carga semanal (duración × RPE)</h3>${by.map(x=>`<div class="wb"><span>${fmtD(x.w).replace(/ de? \d{4}|\s\d{4}$/,"")}</span><div class="bar"><b style="width:${x.load/mx*100}%"></b></div><span>${x.load}</span></div>`).join("")}
+ <p class="mu" style="margin:10px 0 0">${sessions.length?"":"Registra tu primera sesión para ver la tendencia."}</p></div>
+ <div class="c"><h3>Resumen de 6 semanas</h3><div class="row"><div><div class="num">${by.reduce((a,x)=>a+x.n,0)}</div><div class="mu">sesiones</div></div><div><div class="num">${Math.round(by.reduce((a,x)=>a+x.min,0)/60*10)/10}</div><div class="mu">horas</div></div></div></div>`}
+function detail(s){const it=s.flexo_session_items||[];if(SPORTS[s.sport]?.gym)return it.map(i=>`${esc(i.name)} ${i.data.reps}×${i.data.weight??"–"} ${i.data.unit||""}`).join(" · ");
+ const d=it[0]?.data||{};const p=d.km&&d.min?` · ${(d.min/d.km).toFixed(2)} min/km`:"";return Object.entries(d).map(([k,v])=>`${k}: ${v}`).join(" · ")+p}
+function renderHist(){
+ const f=$("hf")?.value||"";const list=sessions.filter(s=>!f||s.sport===f);
+ $("v-historial").innerHTML=`<h2>Historial</h2><div class="row" style="margin:10px 0 14px"><select id="hf" aria-label="Filtrar por deporte"><option value="">Todos los deportes</option>${opts(Object.entries(SPORTS).map(([k,s])=>[k,s.n]),f)}</select><button class="btn o s" id="hcsv">Exportar CSV</button></div>
+ <div class="c">${list.length?list.map(s=>`<div class="ses"><b>${fmtD(s.session_date)}</b> <span class="pill">${SPORTS[s.sport]?.n||s.sport}</span><span class="pill">${s.duration_min} min</span><span class="pill">RPE ${s.rpe}</span><span class="pill">carga ${s.load}</span>
+ <div class="mu">${detail(s)}</div>${s.notes?`<div class="mu">${esc(s.notes)}</div>`:""}<div class="acts" style="margin-top:8px"><button class="btn o s" data-e="${s.id}">Editar</button><button class="btn o s er" data-d="${s.id}">Eliminar</button></div></div>`).join(""):`<b>Aún no hay sesiones.</b><p class="mu">Registra la primera para ver tu evolución.</p>`}</div><div class="msg" id="hmsg" role="status"></div>`;
+ $("hf").onchange=renderHist;$("hcsv").onclick=csv}
+$("v-historial").onclick=async e=>{const b=e.target.closest("button");if(!b)return;
+ if(b.dataset.d){if(!confirm("Al eliminar una sesión se borran también sus series. No se puede deshacer."))return;const{error}=await sb.from("flexo_sessions").delete().eq("id",b.dataset.d);if(error)return msg("hmsg","No se pudo eliminar: "+error.message,"er");await load();renderHist()}
+ if(b.dataset.e){const s=sessions.find(x=>x.id===b.dataset.e);editId=s.id;go("registrar");$("rt").textContent="Editar sesión";$("rcancel").classList.remove("hid");
+  $("rd").value=s.session_date;$("rs").value=s.sport;regSport();$("rm").value=s.duration_min;$("rr").value=s.rpe;$("rn").value=s.notes||"";$("rg").value=s.goal_id||"";rpeLoad();
+  const it=s.flexo_session_items||[];if(SPORTS[s.sport].gym){$("its").innerHTML="";it.forEach(i=>{addSet();const r=$("its").lastElementChild;r.children[0].value=i.name;r.children[1].value=i.data.reps;r.children[2].value=i.data.weight??"";r.children[3].value=i.data.unit||"kg"});if(!it.length)addSet()}
+  else Object.entries(it[0]?.data||{}).forEach(([k,v])=>{const i=$("f-"+k);if(i)i.value=v})}};
+function csv(){if(!sessions.length)return;const r=[["fecha","deporte","duración_min","rpe","carga","detalle","notas"],...sessions.map(s=>[s.session_date,s.sport,s.duration_min,s.rpe,s.load,detail(s).replace(/&amp;/g,"&"),s.notes||""])];
+ const t=r.map(x=>x.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(",")).join("\r\n"),a=document.createElement("a");a.href=URL.createObjectURL(new Blob(["\ufeff"+t],{type:"text/csv"}));a.download="flexo_historial.csv";a.click()}
+boot();
+</script></body></html>
