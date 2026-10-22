@@ -116,7 +116,7 @@ const METRICS={gimnasio:[["1RM sentadilla","kg",1],["1RM press de banca","kg",1]
 const LEVELS=["principiante","intermedio","avanzado"],DAYS=["L","M","X","J","V","S","D"];
 const TABS=[["hoy","Hoy","M4 11l8-7 8 7v9H4z"],["metas","Metas","M12 3a9 9 0 100 18 9 9 0 000-18zM12 8a4 4 0 100 8 4 4 0 000-8z"],["registrar","Registrar","M12 5v14M5 12h14"],["progreso","Progreso","M3 17c3 0 4-6 8-6s4 4 9-2"],["historial","Historial","M5 7h14M5 12h14M5 17h9"]];
 const LANDING="index.html";document.querySelectorAll("[data-landing]").forEach(a=>a.href=LANDING);
-let blocks=[],planned=[],PL=null,U=null,profile=null,goals=[],sessions=[],editId=null,view="hoy";
+let daily=[],DS={},blocks=[],planned=[],PL=null,U=null,profile=null,goals=[],sessions=[],editId=null,view="hoy";
 const iso=d=>d.toISOString().slice(0,10),today=()=>iso(new Date());
 const fmtD=s=>new Date(s+"T12:00:00").toLocaleDateString("es",{day:"numeric",month:"short",year:"numeric"});
 const num=v=>v===""||v==null?null:Number(v),msg=(id,t,k)=>{const e=$(id);e.textContent=t;e.className="msg "+(k||"")};
@@ -132,8 +132,8 @@ $("signup").onclick=async()=>{const{data,error}=await sb.auth.signUp({email:$("e
 $("out").onclick=async()=>{await sb.auth.signOut();U=null;show("auth")};
 async function enter(u){U=u;tLoad();show("app");await load();go(profile?"hoy":"perfil")}
 async function load(){
- const[p,g,s,bl,pl]=await Promise.all([sb.from("flexo_profiles").select("*").eq("user_id",U.id).maybeSingle(),sb.from("flexo_goals").select("*").order("due_date"),sb.from("flexo_sessions").select("*,flexo_session_items(*)").order("session_date",{ascending:false}),sb.from("flexo_plan_blocks").select("*").order("start_date"),sb.from("flexo_planned_sessions").select("*").order("planned_date")]);
- profile=p.data;goals=g.data||[];sessions=s.data||[];blocks=bl.data||[];planned=pl.data||[];
+ const[p,g,s,bl,pl,dy]=await Promise.all([sb.from("flexo_profiles").select("*").eq("user_id",U.id).maybeSingle(),sb.from("flexo_goals").select("*").order("due_date"),sb.from("flexo_sessions").select("*,flexo_session_items(*)").order("session_date",{ascending:false}),sb.from("flexo_plan_blocks").select("*").order("start_date"),sb.from("flexo_planned_sessions").select("*").order("planned_date"),sb.from("flexo_daily_status").select("*").order("status_date",{ascending:false}).limit(400)]);
+ profile=p.data;goals=g.data||[];sessions=s.data||[];blocks=bl.data||[];planned=pl.data||[];daily=dy.data||[];
 }
 
 /* ---------- Navegación ---------- */
@@ -317,11 +317,40 @@ function computeAlerts(){
   else if(d<=AL.metaDias)out.push({id:"vence:"+g.id,t:"Meta",m:`Tu meta «${esc(g.metric)}» ${d===0?"vence hoy":`vence en ${d} días`} y llevas ${p} % de avance.`,a:"metas",al:"Ver metas"})});
  const r3=sessions.slice(0,3);
  if(r3.length===3&&r3.every(s=>s.rpe>=AL.rpeAlto)&&r3[0].session_date>=day(14))out.push({id:"rpe:"+r3[0].session_date,t:"Esfuerzo",m:`Tus últimas 3 sesiones tuvieron un RPE de ${AL.rpeAlto} o más.`});
+ const r3d=daily.filter(d=>d.status_date>=day(6)).sort((a,b)=>b.status_date.localeCompare(a.status_date)).slice(0,3),dol=r3d.filter(d=>d.pain>=3);
+ if(r3d.length===3&&r3d.every(d=>d.fatigue>=4))out.push({id:"fat:"+r3d[0].status_date,t:"Fatiga",m:"Registraste fatiga de 4 o más en tus últimos 3 estados diarios.",a:"progreso",al:"Ver progreso"});
+ if(r3d.length>=2&&dol.length>=2)out.unshift({id:"dolor:"+r3d[0].status_date,t:"Dolor",m:`Registraste dolor de 3 o más en ${dol.length} de tus últimos ${r3d.length} estados diarios. Si el dolor persiste, consulta a un profesional de la salud.`});
  const off=new Set(alOff());return out.filter(a=>!off.has(a.id)).slice(0,AL.max)}
 function alertsHtml(){const a=computeAlerts();if(!a.length)return"";
  return`<div class="c"><h3>Alertas</h3>${a.map(x=>`<div class="ses"><span class="pill">${x.t}</span> ${x.m}<div class="acts" style="margin-top:8px">${x.a?`<button class="btn s" data-aa="${x.a}">${x.al}</button>`:""}<button class="btn o s" data-ah="${x.id}">Entendido</button></div></div>`).join("")}<p class="mu" style="margin:10px 0 0;font-size:13px">Son observaciones de tus datos, no recomendaciones. Escucha a tu cuerpo.</p></div>`}
 document.addEventListener("click",e=>{const x=e.target.closest("[data-ah]");if(x){alHide(x.dataset.ah);return renderHoy()}
  const a=e.target.closest("[data-aa]");if(a){const[k,id]=a.dataset.aa.split(":");if(k==="plan"){PL=id;go("plan")}else go(k)}});
+/* ---------- Estado diario (opcional) ---------- */
+const DL={sleep:["Sueño (horas)","sleep_hours","Horas dormidas la noche anterior."],fatigue:["Fatiga (1–5)","fatigue","1 = muy descansado, 5 = muy cansado."],pain:["Dolor (0–5)","pain","0 = ninguno, 5 = muy fuerte."],mood:["Ánimo (1–5)","mood","1 = bajo, 5 = muy bueno."]};
+const statusText=t=>[t.sleep_hours!=null&&`Sueño ${t.sleep_hours} h`,t.fatigue!=null&&`Fatiga ${t.fatigue}/5`,t.pain!=null&&`Dolor ${t.pain}/5`,t.mood!=null&&`Ánimo ${t.mood}/5`].filter(Boolean).join(" · ");
+const dayStatus=d=>{const t=daily.find(x=>x.status_date===d);return t?`<div class="mu">Ese día: ${statusText(t)}</div>`:""};
+function chipsFor(n,min,cur){return`<div class="chips" role="radiogroup" aria-label="${n}">${Array.from({length:6-min},(_,i)=>i+min).map(v=>`<label><input type="radio" name="ds-${n}" value="${v}"${cur===v?" checked":""}>${v}</label>`).join("")}</div>`}
+function dailyHtml(){const t=daily.find(d=>d.status_date===today());
+ if(t&&!DS.edit)return`<div class="c"><h3>Tu estado de hoy</h3><div class="mu">${statusText(t)}</div>${t.pain>=3?`<p class="mu" style="font-size:13px;margin:8px 0 0">Si el dolor persiste, consulta a un profesional de la salud.</p>`:""}<div class="acts" style="margin-top:12px"><button class="btn o s" id="dsedit" type="button">Editar</button></div></div>`;
+ return`<div class="c"><h3>¿Cómo estás hoy? <span class="mu">(opcional)</span></h3>
+ <label for="dsl">Horas de sueño</label><input id="dsl" type="number" min="0" max="24" step="0.5" inputmode="decimal" value="${t?.sleep_hours??""}">
+ <label>Fatiga <span class="mu">1 = muy descansado, 5 = muy cansado</span></label>${chipsFor("fatigue",1,t?.fatigue)}
+ <label>Dolor <span class="mu">0 = ninguno, 5 = muy fuerte</span></label>${chipsFor("pain",0,t?.pain)}
+ <label>Ánimo <span class="mu">1 = bajo, 5 = muy bueno</span></label>${chipsFor("mood",1,t?.mood)}
+ <div class="acts"><button class="btn s" id="dssave" type="button">Guardar estado</button>${t?`<button class="btn o s" id="dscancel" type="button">Cancelar</button>`:""}</div><div class="msg" id="dsmsg" role="status"></div>
+ <p class="mu" style="font-size:13px;margin:6px 0 0">Solo tú puedes ver estos datos. Sirven para entender tus sesiones, no para diagnosticar.</p></div>`}
+async function saveDaily(){const q=s=>$("v-hoy").querySelector(s),v=n=>{const r=q(`input[name="ds-${n}"]:checked`);return r?+r.value:null},sl=q("#dsl").value;
+ const row={user_id:U.id,status_date:today(),sleep_hours:sl===""?null:+sl,fatigue:v("fatigue"),pain:v("pain"),mood:v("mood")};
+ if(row.sleep_hours==null&&row.fatigue==null&&row.pain==null&&row.mood==null)return msg("dsmsg","Completa al menos un dato.","er");
+ if(row.sleep_hours!=null&&(row.sleep_hours<0||row.sleep_hours>24))return msg("dsmsg","Las horas de sueño deben estar entre 0 y 24.","er");
+ const{data,error}=await sb.from("flexo_daily_status").upsert(row,{onConflict:"user_id,status_date"}).select().single();
+ if(error)return msg("dsmsg","No se pudo guardar: "+error.message,"er");
+ daily=daily.filter(d=>d.status_date!==row.status_date);daily.push(data);daily.sort((a,b)=>b.status_date.localeCompare(a.status_date));DS.edit=false;renderHoy()}
+$("v-hoy").addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;if(b.id==="dsedit"){DS.edit=true;renderHoy()}else if(b.id==="dscancel"){DS.edit=false;renderHoy()}else if(b.id==="dssave")saveDaily()});
+function dailyCard(ws){
+ if(!daily.some(d=>d.status_date>=ws[0]))return card("Estado diario",`<p class="mu" style="margin:0">Aún no hay registros de estado en este periodo. Puedes anotarlo en Hoy; es opcional.</p>`);
+ const L=DL[PF.ds],pts=daily.filter(d=>d.status_date>=ws[0]&&d[L[1]]!=null).sort((a,b)=>a.status_date.localeCompare(b.status_date)).map(d=>({x:shortD(d.status_date),y:Number(d[L[1]])})),avg=pts.length?pts.reduce((a,p)=>a+p.y,0)/pts.length:0;
+ return`<div class="sel"><div><label for="pfd">Estado diario</label><select id="pfd">${opts(Object.entries(DL).map(([k,v])=>[k,v[0]]),PF.ds)}</select></div></div>`+card(L[0],lineChart(pts,L[0]),`${L[2]}${pts.length?` Promedio del periodo: ${fmtN(avg)}.`:""} Cruza estos datos con tu historial: allí ves cómo estabas cada día que entrenaste.`)}
 /* ---------- Hoy, Progreso, Historial ---------- */
 const wk=s=>{const d=new Date(s+"T12:00:00");d.setDate(d.getDate()-((d.getDay()+6)%7));return iso(d)};
 function renderHoy(){
@@ -330,14 +359,14 @@ function renderHoy(){
  const doneP=new Set(sessions.map(s=>s.planned_session_id).filter(Boolean)),wp=planned.filter(p=>wk(p.planned_date)===w&&act.some(g=>g.id===p.goal_id));
  const stP=p=>doneP.has(p.id)?["Hecha","ok"]:p.planned_date<today()?["Omitida",""]:["Pendiente",""];
  const planHtml=wp.length?`<div class="c"><h3>Plan de esta semana</h3><p class="mu" style="margin:0 0 8px">${wp.filter(p=>doneP.has(p.id)).length} de ${wp.length} sesiones hechas</p>${wp.map(p=>{const[l,k]=stP(p);return`<div class="ses"><b>${shortD(p.planned_date)}</b> <span class="pill">${esc(SPORTS[p.sport]?.n||p.sport)}</span><span class="pill">${p.duration_min} min</span><span class="pill ${k}">${l}</span>${l==="Pendiente"?` <button class="btn s" data-pl="${p.id}">Registrar</button>`:""}</div>`}).join("")}</div>`:(act.length&&!planned.length?`<div class="c"><b>Organiza tu semana.</b><p class="mu" style="margin:6px 0 12px">Crea un plan para tu meta y compáralo con lo que registres.</p><button class="btn s" data-go="metas">Ir a Metas</button></div>`:"");
- $("v-hoy").innerHTML=`<h2>Hoy</h2>${alertsHtml()}
+ $("v-hoy").innerHTML=`<h2>Hoy</h2>${alertsHtml()}${dailyHtml()}
  ${act.length?act.map(g=>`<div class="c"><h3>${esc(g.metric)}</h3><div class="num">${Math.round(progress(g)*100)}%</div><div class="bar"><b style="width:${progress(g)*100}%"></b></div><div class="mu">${g.current_value} de ${g.target_value} ${esc(g.unit)} · hasta el ${fmtD(g.due_date)}</div></div>`).join(""):`<div class="c"><b>Define tu primera meta.</b><p class="mu">Con un punto de partida, un objetivo y una fecha, tus sesiones tienen dirección.</p><button class="btn s" data-go="metas">Crear meta</button></div>`}
  ${planHtml}<div class="c"><h3>Esta semana</h3><div class="row"><div><div class="num">${sw.length}</div><div class="mu">sesiones${days?` de ${days} días disponibles`:""}</div></div><div><div class="num">${load}</div><div class="mu">de carga (duración × RPE)</div></div></div>
  ${last?`<p class="mu" style="margin:14px 0 0">Última sesión: ${SPORTS[last.sport]?.n||last.sport}, ${fmtD(last.session_date)}.</p>`:""}</div>
  <div class="acts"><button class="btn" data-go="registrar">Registrar sesión</button><button class="btn o" data-go="perfil">Editar perfil</button></div>
  <p class="mu" style="margin-top:26px">FLEXO registra y analiza tus datos. No prescribe rutinas ni sustituye a entrenadores o profesionales de la salud. Escucha a tu cuerpo.</p>`}
 document.addEventListener("click",e=>{const b=e.target.closest("[data-go]");if(b)go(b.dataset.go)});
-const PF={sport:"all",weeks:8,ex:"",met:"peso"},fmtN=v=>Math.round(v*10)/10,shortD=s=>new Date(s+"T12:00:00").toLocaleDateString("es",{day:"numeric",month:"short"}),FS="font-family:'Instrument Sans',sans-serif";
+const PF={sport:"all",weeks:8,ex:"",met:"peso",ds:"sleep"},fmtN=v=>Math.round(v*10)/10,shortD=s=>new Date(s+"T12:00:00").toLocaleDateString("es",{day:"numeric",month:"short"}),FS="font-family:'Instrument Sans',sans-serif";
 const fmtPace=m=>{const t=Math.round(m*60);return`${Math.floor(t/60)}:${String(t%60).padStart(2,"0")} min/km`};
 function lineChart(pts,u){
  if(pts.length<2)return`<p class="mu" style="margin:0">Registra al menos dos sesiones para ver la tendencia.</p>`;
@@ -384,18 +413,18 @@ function renderProg(){
  h+=card("Veces por semana",barChart(by.map(x=>x.n),lb,"sesiones"))+card("Tiempo por semana (min)",barChart(by.map(x=>x.min),lb,"tiempo"))+sportCards(S);
  const rpts=by.map((x,i)=>x.rpe==null?null:{x:lb[i],y:fmtN(x.rpe)}).filter(Boolean);
  h+=card("Esfuerzo (RPE promedio)",lineChart(rpts,"RPE"),"Un RPE alto sostenido junto con más carga semanal indica semanas más exigentes.")+card("Carga semanal (duración × RPE)",barChart(by.map(x=>x.load),lb,"carga"));
- h+=planCards(ws,lb);
+ h+=planCards(ws,lb)+dailyCard(ws);
  if(PF.sport==="all"){const g={};S.forEach(s=>{g[s.sport]=g[s.sport]||{n:0,m:0};g[s.sport].n++;g[s.sport].m+=s.duration_min});const mx=Math.max(...Object.values(g).map(x=>x.n));
   h+=`<div class="c"><h3>Por deporte</h3>${Object.entries(g).sort((a,b)=>b[1].n-a[1].n).map(([k,v])=>`<div class="wb" style="grid-template-columns:120px 1fr 80px"><span>${esc(SPORTS[k]?.n||k)}</span><div class="bar"><b style="width:${v.n/mx*100}%"></b></div><span>${v.n} · ${fmtN(v.m/60)} h</span></div>`).join("")}</div>`}
  $("v-progreso").innerHTML=h}
-$("v-progreso").onchange=e=>{const t=e.target;if(t.id==="pfs"){PF.sport=t.value;PF.ex=""}else if(t.id==="pfw")PF.weeks=+t.value;else if(t.id==="pfe")PF.ex=t.value;else if(t.id==="pfm")PF.met=t.value;renderProg()};
+$("v-progreso").onchange=e=>{const t=e.target;if(t.id==="pfs"){PF.sport=t.value;PF.ex=""}else if(t.id==="pfw")PF.weeks=+t.value;else if(t.id==="pfe")PF.ex=t.value;else if(t.id==="pfm")PF.met=t.value;else if(t.id==="pfd")PF.ds=t.value;renderProg()};
 function detail(s){const it=s.flexo_session_items||[];if(SPORTS[s.sport]?.gym)return it.map(i=>`${esc(i.name)} ${i.data.reps}×${i.data.weight??"–"} ${i.data.unit||""}${i.data.rest?` (desc. ${i.data.rest} s)`:""}`).join(" · ");
  const d=it[0]?.data||{};const p=d.km&&d.min?` · ${(d.min/d.km).toFixed(2)} min/km`:"";return Object.entries(d).map(([k,v])=>`${k}: ${v}`).join(" · ")+p}
 function renderHist(){
  const f=$("hf")?.value||"";const list=sessions.filter(s=>!f||s.sport===f);
  $("v-historial").innerHTML=`<h2>Historial</h2><div class="row" style="margin:10px 0 14px"><select id="hf" aria-label="Filtrar por deporte"><option value="">Todos los deportes</option>${opts(Object.entries(SPORTS).map(([k,s])=>[k,s.n]),f)}</select><button class="btn o s" id="hcsv">Exportar CSV</button></div>
  <div class="c">${list.length?list.map(s=>`<div class="ses"><b>${fmtD(s.session_date)}</b> <span class="pill">${SPORTS[s.sport]?.n||s.sport}</span><span class="pill">${s.duration_min} min</span><span class="pill">RPE ${s.rpe}</span><span class="pill">carga ${s.load}</span>${s.planned_session_id?`<span class="pill ok">del plan</span>`:""}${s.rest_seconds>0?`<span class="pill">descanso ${fmtT(s.rest_seconds)}</span><span class="pill">activo ${fmtT(Math.max(0,s.duration_min*60-s.rest_seconds))}</span>`:""}
- <div class="mu">${detail(s)}</div>${s.notes?`<div class="mu">${esc(s.notes)}</div>`:""}<div class="acts" style="margin-top:8px"><button class="btn o s" data-e="${s.id}">Editar</button><button class="btn o s er" data-d="${s.id}">Eliminar</button></div></div>`).join(""):`<b>Aún no hay sesiones.</b><p class="mu">Registra la primera para ver tu evolución.</p>`}</div><div class="msg" id="hmsg" role="status"></div>`;
+ <div class="mu">${detail(s)}</div>${dayStatus(s.session_date)}${s.notes?`<div class="mu">${esc(s.notes)}</div>`:""}<div class="acts" style="margin-top:8px"><button class="btn o s" data-e="${s.id}">Editar</button><button class="btn o s er" data-d="${s.id}">Eliminar</button></div></div>`).join(""):`<b>Aún no hay sesiones.</b><p class="mu">Registra la primera para ver tu evolución.</p>`}</div><div class="msg" id="hmsg" role="status"></div>`;
  $("hf").onchange=renderHist;$("hcsv").onclick=csv}
 $("v-historial").onclick=async e=>{const b=e.target.closest("button");if(!b)return;
  if(b.dataset.d){if(!confirm("Al eliminar una sesión se borran también sus series. No se puede deshacer."))return;const{error}=await sb.from("flexo_sessions").delete().eq("id",b.dataset.d);if(error)return msg("hmsg","No se pudo eliminar: "+error.message,"er");await load();renderHist()}
