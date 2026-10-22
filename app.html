@@ -298,6 +298,30 @@ function planCards(ws,lb){
  const rows=ws.map(w=>{const x=ps.filter(p=>wk(p.planned_date)===w),d=x.filter(p=>lk[p.id]);return{n:x.length,d:d.length,pm:x.reduce((a,p)=>a+p.duration_min,0),rm:d.reduce((a,p)=>a+lk[p.id].duration_min,0)}});
  const T=rows.reduce((a,r)=>a+r.n,0),D=rows.reduce((a,r)=>a+r.d,0);
  return card("Cumplimiento del plan (%)",barChart(rows.map(r=>r.n?Math.round(r.d/r.n*100):0),lb,"cumplimiento"),`${D} de ${T} sesiones planificadas realizadas en el periodo. La semana en curso aún no termina y las semanas sin plan aparecen en 0.`)+card("Minutos: plan y real",pairChart(rows.map(r=>r.pm),rows.map(r=>r.rm),lb),"Gris: planificado. Lima: realizado en las sesiones que enlazaste con el plan.")}
+/* ---------- Alertas (observaciones de tus datos) ---------- */
+const AL={carga:30,cargaMinSesiones:2,inactDias:10,omitidas:2,metaDias:14,rpeAlto:9,max:4};
+const alKey=()=>"flexo_alertas_"+U.id,alOff=()=>{try{return JSON.parse(localStorage.getItem(alKey()))||[]}catch(e){return[]}};
+const alHide=id=>{try{const a=alOff();a.push(id);localStorage.setItem(alKey(),JSON.stringify(a.slice(-60)))}catch(e){}};
+function computeAlerts(){
+ const T=today(),out=[],day=n=>{const d=new Date(T+"T12:00:00");d.setDate(d.getDate()-n);return iso(d)},ld=a=>a.reduce((t,s)=>t+s.load,0);
+ const last=sessions[0];
+ if(last){const dd=Math.round((new Date(T+"T12:00:00")-new Date(last.session_date+"T12:00:00"))/864e5);
+  if(dd>=AL.inactDias)out.push({id:"inact:"+last.session_date,t:"Constancia",m:`Han pasado ${dd} días desde tu última sesión registrada (${fmtD(last.session_date)}).`,a:"registrar",al:"Registrar sesión"})}
+ const l7=sessions.filter(s=>s.session_date>=day(6)&&s.session_date<=T),p7=sessions.filter(s=>s.session_date>=day(13)&&s.session_date<=day(7)),L=ld(l7),P=ld(p7);
+ if(p7.length>=AL.cargaMinSesiones&&P>0&&(L/P-1)*100>AL.carga)out.push({id:"carga:"+wk(T),t:"Carga",m:`Tu carga de los últimos 7 días (${L}) es ${Math.round((L/P-1)*100)} % mayor que la de los 7 días anteriores (${P}).`,a:"progreso",al:"Ver progreso"});
+ const done=new Set(sessions.map(s=>s.planned_session_id).filter(Boolean)),act=goals.filter(g=>g.status==="activa");
+ const om=planned.filter(p=>p.planned_date>=day(7)&&p.planned_date<T&&!done.has(p.id)&&act.some(g=>g.id===p.goal_id));
+ if(om.length>=AL.omitidas)out.push({id:"omit:"+wk(T),t:"Plan",m:`Hay ${om.length} sesiones del plan sin registrar en los últimos 7 días.`,a:"plan:"+om[0].goal_id,al:"Ver plan"});
+ act.forEach(g=>{const d=Math.ceil((new Date(g.due_date+"T12:00:00")-new Date(T+"T12:00:00"))/864e5),p=Math.round(progress(g)*100);
+  if(d<0)out.push({id:"venc:"+g.id,t:"Meta",m:`La fecha de tu meta «${esc(g.metric)}» venció hace ${-d} días. Puedes marcarla como lograda, archivarla o definir una nueva.`,a:"metas",al:"Ver metas"});
+  else if(d<=AL.metaDias)out.push({id:"vence:"+g.id,t:"Meta",m:`Tu meta «${esc(g.metric)}» ${d===0?"vence hoy":`vence en ${d} días`} y llevas ${p} % de avance.`,a:"metas",al:"Ver metas"})});
+ const r3=sessions.slice(0,3);
+ if(r3.length===3&&r3.every(s=>s.rpe>=AL.rpeAlto)&&r3[0].session_date>=day(14))out.push({id:"rpe:"+r3[0].session_date,t:"Esfuerzo",m:`Tus últimas 3 sesiones tuvieron un RPE de ${AL.rpeAlto} o más.`});
+ const off=new Set(alOff());return out.filter(a=>!off.has(a.id)).slice(0,AL.max)}
+function alertsHtml(){const a=computeAlerts();if(!a.length)return"";
+ return`<div class="c"><h3>Alertas</h3>${a.map(x=>`<div class="ses"><span class="pill">${x.t}</span> ${x.m}<div class="acts" style="margin-top:8px">${x.a?`<button class="btn s" data-aa="${x.a}">${x.al}</button>`:""}<button class="btn o s" data-ah="${x.id}">Entendido</button></div></div>`).join("")}<p class="mu" style="margin:10px 0 0;font-size:13px">Son observaciones de tus datos, no recomendaciones. Escucha a tu cuerpo.</p></div>`}
+document.addEventListener("click",e=>{const x=e.target.closest("[data-ah]");if(x){alHide(x.dataset.ah);return renderHoy()}
+ const a=e.target.closest("[data-aa]");if(a){const[k,id]=a.dataset.aa.split(":");if(k==="plan"){PL=id;go("plan")}else go(k)}});
 /* ---------- Hoy, Progreso, Historial ---------- */
 const wk=s=>{const d=new Date(s+"T12:00:00");d.setDate(d.getDate()-((d.getDay()+6)%7));return iso(d)};
 function renderHoy(){
@@ -306,7 +330,7 @@ function renderHoy(){
  const doneP=new Set(sessions.map(s=>s.planned_session_id).filter(Boolean)),wp=planned.filter(p=>wk(p.planned_date)===w&&act.some(g=>g.id===p.goal_id));
  const stP=p=>doneP.has(p.id)?["Hecha","ok"]:p.planned_date<today()?["Omitida",""]:["Pendiente",""];
  const planHtml=wp.length?`<div class="c"><h3>Plan de esta semana</h3><p class="mu" style="margin:0 0 8px">${wp.filter(p=>doneP.has(p.id)).length} de ${wp.length} sesiones hechas</p>${wp.map(p=>{const[l,k]=stP(p);return`<div class="ses"><b>${shortD(p.planned_date)}</b> <span class="pill">${esc(SPORTS[p.sport]?.n||p.sport)}</span><span class="pill">${p.duration_min} min</span><span class="pill ${k}">${l}</span>${l==="Pendiente"?` <button class="btn s" data-pl="${p.id}">Registrar</button>`:""}</div>`}).join("")}</div>`:(act.length&&!planned.length?`<div class="c"><b>Organiza tu semana.</b><p class="mu" style="margin:6px 0 12px">Crea un plan para tu meta y compáralo con lo que registres.</p><button class="btn s" data-go="metas">Ir a Metas</button></div>`:"");
- $("v-hoy").innerHTML=`<h2>Hoy</h2>
+ $("v-hoy").innerHTML=`<h2>Hoy</h2>${alertsHtml()}
  ${act.length?act.map(g=>`<div class="c"><h3>${esc(g.metric)}</h3><div class="num">${Math.round(progress(g)*100)}%</div><div class="bar"><b style="width:${progress(g)*100}%"></b></div><div class="mu">${g.current_value} de ${g.target_value} ${esc(g.unit)} · hasta el ${fmtD(g.due_date)}</div></div>`).join(""):`<div class="c"><b>Define tu primera meta.</b><p class="mu">Con un punto de partida, un objetivo y una fecha, tus sesiones tienen dirección.</p><button class="btn s" data-go="metas">Crear meta</button></div>`}
  ${planHtml}<div class="c"><h3>Esta semana</h3><div class="row"><div><div class="num">${sw.length}</div><div class="mu">sesiones${days?` de ${days} días disponibles`:""}</div></div><div><div class="num">${load}</div><div class="mu">de carga (duración × RPE)</div></div></div>
  ${last?`<p class="mu" style="margin:14px 0 0">Última sesión: ${SPORTS[last.sport]?.n||last.sport}, ${fmtD(last.session_date)}.</p>`:""}</div>
