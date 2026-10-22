@@ -46,12 +46,21 @@ nav svg{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:2;stro
 .it{display:grid;grid-template-columns:2fr 1fr 1fr 1fr 1fr;gap:6px;margin-bottom:6px}.it input,.it select{padding:10px 8px}
 .wb{display:grid;grid-template-columns:70px 1fr 56px;gap:8px;align-items:center;font-size:13px;margin:8px 0}.wb .bar{margin:0}
 .ses{border-top:1px solid var(--ln);padding:12px 0}.ses:first-child{border:0}
-a{color:var(--ac)}.tm{display:flex;gap:16px;align-items:center;flex-wrap:wrap}.tm .num{font-size:24px;font-variant-numeric:tabular-nums}.tm .row{flex:1}.sel{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin:12px 0 16px}.kp .num{font-size:28px;font-variant-numeric:tabular-nums}.dl{font-size:12px;color:var(--mu)}.pb{display:grid;grid-template-columns:2fr 1fr auto;gap:8px;margin-bottom:8px}.pw{display:grid;grid-template-columns:90px 1fr 80px;gap:8px;align-items:center;margin-bottom:8px}.pw span{font-weight:600;font-size:14px}.pill.ok{border-color:var(--ac);color:var(--ac)}.pill{font-size:12px;font-weight:600;border:1px solid var(--ln);border-radius:99px;padding:2px 10px;margin-right:6px}
+a{color:var(--ac)}.tm{display:flex;gap:16px;align-items:center;flex-wrap:wrap}.tm .num{font-size:24px;font-variant-numeric:tabular-nums}.tm .row{flex:1}.sel{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin:12px 0 16px}.kp .num{font-size:28px;font-variant-numeric:tabular-nums}.dl{font-size:12px;color:var(--mu)}.pb{display:grid;grid-template-columns:2fr 1fr auto;gap:8px;margin-bottom:8px}.pw{display:grid;grid-template-columns:90px 1fr 80px;gap:8px;align-items:center;margin-bottom:8px}.pw span{font-weight:600;font-size:14px}.pill.ok{border-color:var(--ac);color:var(--ac)}.cy{position:relative;width:100%;max-width:420px;aspect-ratio:1;margin:8px auto 26px}.cy svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
+.rg{fill:none;stroke:var(--ln);stroke-width:.7}.ra{fill:none;stroke:var(--ac);stroke-width:2;stroke-linecap:round}.orb{fill:var(--ac);transform-box:view-box;transform-origin:50% 50%;animation:spin 28s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}@media(prefers-reduced-motion:reduce){.orb{animation:none}}
+.cc{position:absolute;inset:30% 26%;display:grid;place-content:center;text-align:center;gap:4px;pointer-events:none}.cc small,.cc span{color:var(--mu);font-size:12px}.cc b{font:800 clamp(15px,4vw,20px)/1.1 Unbounded,sans-serif;letter-spacing:-.02em}
+.nd{position:absolute;transform:translate(-50%,-50%);display:flex;gap:6px;align-items:center;padding:5px 12px 5px 5px;border-radius:99px;border:1px solid var(--ln);background:var(--s);color:var(--tx);font:600 12px 'Instrument Sans',sans-serif;cursor:pointer;white-space:nowrap}
+.nd i{font:800 12px Unbounded,sans-serif;font-style:normal;width:22px;height:22px;border-radius:50%;display:grid;place-items:center;background:var(--bg);color:var(--ac)}
+.nd[aria-current=step]{background:var(--bb);color:var(--bt);border-color:var(--bb)}.nd[aria-current=step] i{background:var(--bt);color:var(--bb)}
+.cp{background:var(--s);border:1px solid var(--ln);border-radius:22px;padding:clamp(20px,4vw,32px);max-width:720px;margin:0 auto}.cp h3{font-size:20px;font-weight:800;letter-spacing:-.02em;margin:0 0 6px}.cp p{margin:.3em 0 .8em}
+.cp h4{font:600 13px 'Instrument Sans',sans-serif;color:var(--mu);margin:16px 0 4px}.cp ol{margin:0;padding-left:20px}.cp li{margin:5px 0}.cp .wh{font-size:14px;color:var(--mu);margin:14px 0 0}
+.top{flex-wrap:wrap;gap:8px}.pill{font-size:12px;font-weight:600;border:1px solid var(--ln);border-radius:99px;padding:2px 10px;margin-right:6px}
 @media(max-width:480px){.it{grid-template-columns:1fr 1fr}.it input:first-child{grid-column:1/-1}}
 @media(prefers-reduced-motion:no-preference){.bar b{transition:width .6s cubic-bezier(.22,1,.36,1)}}
 </style></head><body>
 <div class="w">
-<div class="top"><div class="wm">FLEXO<i></i></div><button class="btn o s hid" id="out">Cerrar sesión</button></div>
+<div class="top"><div class="wm">FLEXO<i></i></div><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn o s hid" id="hlp">Cómo funciona</button><button class="btn o s hid" id="out">Cerrar sesión</button></div></div>
 
 <main id="auth" class="hid">
 <h2>Entrena con intención.</h2><p class="mu">Inicia sesión o crea tu cuenta para guardar tus metas y sesiones.</p><p><a data-landing href="#">¿Qué es FLEXO y cómo funciona?</a></p>
@@ -94,11 +103,12 @@ a{color:var(--ac)}.tm{display:flex;gap:16px;align-items:center;flex-wrap:wrap}.t
 <section id="v-progreso" class="hid"></section>
 <section id="v-historial" class="hid"></section>
 
+<section id="v-ayuda" class="hid"></section>
 <section id="v-prueba" class="hid"></section>
 <section id="v-plan" class="hid"></section>
 
 <section id="v-perfil" class="hid">
-<h2>Tu perfil</h2><p class="mu">Con deporte y días disponibles ya puedes empezar. El resto es opcional.</p>
+<h2>Tu perfil</h2><p class="mu">Con deporte y días disponibles ya puedes empezar. El resto es opcional.</p><p><a href="#" data-help>¿Primera vez? Mira cómo funciona FLEXO</a></p>
 <div class="c"><h3>Deportes y nivel</h3><div id="psp"></div>
 <label>Días disponibles</label><div class="chips" id="pd"></div>
 <label for="pe">Equipamiento</label><input id="pe" placeholder="Ej. mancuernas, bicicleta, acceso a piscina">
@@ -135,7 +145,7 @@ const sportOpts=sel=>opts(mySports().map(k=>[k,SPORTS[k].n]),sel);
 
 /* ---------- Acceso ---------- */
 async function boot(){const{data}=await sb.auth.getSession();data.session?enter(data.session.user):show("auth")}
-function show(w){$("auth").classList.toggle("hid",w!=="auth");$("app").classList.toggle("hid",w!=="app");$("out").classList.toggle("hid",w!=="app")}
+function show(w){$("auth").classList.toggle("hid",w!=="auth");$("app").classList.toggle("hid",w!=="app");$("out").classList.toggle("hid",w!=="app");$("hlp").classList.toggle("hid",w!=="app")}
 $("login").onclick=async()=>{const{data,error}=await sb.auth.signInWithPassword({email:$("em").value.trim(),password:$("pw").value});error?msg("am","No se pudo iniciar sesión: revisa el correo y la contraseña.","er"):enter(data.user)};
 $("signup").onclick=async()=>{const{data,error}=await sb.auth.signUp({email:$("em").value.trim(),password:$("pw").value});if(error)return msg("am",error.message,"er");data.session?enter(data.user):msg("am","Cuenta creada. Confirma tu correo y luego inicia sesión.","ok")};
 $("out").onclick=async()=>{await sb.auth.signOut();U=null;show("auth")};
@@ -148,10 +158,10 @@ async function load(){
 /* ---------- Navegación ---------- */
 $("nav").innerHTML=TABS.map(([k,t,d])=>`<button data-v="${k}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="${d}"/></svg>${t}</button>`).join("");
 $("nav").onclick=e=>{const b=e.target.closest("button");if(b)go(b.dataset.v)};
-function go(v){view=v;["hoy","metas","registrar","progreso","historial","perfil","plan","prueba"].forEach(k=>$("v-"+k).classList.toggle("hid",k!==v));
+function go(v){view=v;["hoy","metas","registrar","progreso","historial","perfil","plan","prueba","ayuda"].forEach(k=>$("v-"+k).classList.toggle("hid",k!==v));
  $("nav").classList.toggle("hid",!profile);
  document.querySelectorAll("nav button").forEach(b=>b.dataset.v===(v==="plan"||v==="prueba"?"metas":v)?b.setAttribute("aria-current","page"):b.removeAttribute("aria-current"));
- ({prueba:renderPrueba,plan:renderPlan,hoy:renderHoy,metas:renderGoals,registrar:initReg,progreso:renderProg,historial:renderHist,perfil:renderPerfil})[v]();window.scrollTo(0,0)}
+ ({ayuda:renderAyuda,prueba:renderPrueba,plan:renderPlan,hoy:renderHoy,metas:renderGoals,registrar:initReg,progreso:renderProg,historial:renderHist,perfil:renderPerfil})[v]();window.scrollTo(0,0)}
 
 /* ---------- Perfil ---------- */
 function renderPerfil(){
@@ -385,6 +395,26 @@ $("v-prueba").onclick=async e=>{const b=e.target.closest("button");if(!b)return;
   if(error)return msg("tmsg","No se pudo guardar: "+error.message,"er");
   tests.push(data);await syncGoal(g);renderPrueba();
   const ok=g.higher_is_better?v>=g.target_value:v<=g.target_value;msg("tmsg",ok?"Prueba guardada. Llegaste al valor objetivo: puedes marcar la meta como lograda en Metas.":"Prueba guardada. Tu meta se actualizó con este resultado.","ok")}};
+const STEPS=[{"t": "Perfil", "h": "Cuéntale a FLEXO tu contexto", "q": "Con tus deportes y los días que puedes entrenar, la app se adapta a ti y te ahorra campos.", "p": ["Elige tus deportes y tu nivel en cada uno.", "Marca los días de la semana que tienes disponibles.", "Si quieres, añade tu equipamiento y tus limitaciones. Es opcional y solo tú lo ves."], "o": "Un perfil listo en menos de dos minutos. Tus deportes y días disponibles se usan después para crear metas y el plan.", "w": "Hoy → Editar perfil.", "go": "perfil", "gl": "Ir a mi perfil"}, {"t": "Meta", "h": "Define una meta que se pueda medir", "q": "Una buena meta responde tres preguntas: dónde estás hoy, adónde quieres llegar y para cuándo.", "p": ["En Metas, elige el deporte y una referencia simple, como el tiempo en 5 km o las repeticiones con un peso fijo.", "Anota tu punto de partida y tu objetivo. Los tiempos se escriben como 28:30.", "Elige una fecha límite."], "o": "Un porcentaje de avance que se actualiza solo cada vez que repites tu prueba de referencia.", "w": "Metas → Nueva meta.", "go": "metas", "gl": "Ir a Metas"}, {"t": "Plan", "h": "Organiza tu semana", "q": "El plan convierte tu meta en sesiones concretas. Lo defines tú: FLEXO no sugiere rutinas.", "p": ["En tu meta pulsa Plan semanal.", "Elige qué días entrenas, el deporte y los minutos de tu semana tipo.", "Si quieres, divide el plan en bloques con el nombre y las semanas que tú decidas.", "Pulsa Generar plan."], "o": "Las sesiones planificadas hasta la fecha de tu meta, listas para compararlas con lo que realmente hagas.", "w": "Metas → Plan semanal.", "go": "metas", "gl": "Ir a Metas"}, {"t": "Registro", "h": "Registra cada sesión", "q": "Es el corazón de FLEXO: cada sesión guardada alimenta todo lo demás.", "p": ["Pulsa Registrar sesión, o Registrar en la tarjeta del plan que aparece en Hoy.", "En gimnasio, inicia el cronómetro para medir el descanso entre series.", "Anota la duración, el esfuerzo percibido (RPE de 1 a 10) y notas. Cada deporte pide sus propios datos.", "Guarda la sesión."], "o": "La carga de la sesión (duración × RPE), tu tiempo activo y un historial completo que puedes exportar.", "w": "Hoy → Registrar sesión, o la pestaña Registrar.", "go": "registrar", "gl": "Registrar una sesión"}, {"t": "Observa", "h": "Mira qué dicen tus datos", "q": "Con tus sesiones registradas, FLEXO calcula tendencias y te muestra cómo vas.", "p": ["En Progreso revisa cuántas veces entrenas, el tiempo, el peso por ejercicio y el cumplimiento del plan.", "Opcional: anota tu estado diario (sueño, fatiga, dolor y ánimo) para entender por qué una sesión salió distinta.", "Revisa las alertas de Hoy: son observaciones de tus datos, no recomendaciones."], "o": "Gráficas de evolución, la comparación entre lo planeado y lo realizado, y contexto para cada sesión.", "w": "Pestañas Progreso e Historial, y la tarjeta de Alertas en Hoy.", "go": "progreso", "gl": "Ver mi progreso"}, {"t": "Prueba", "h": "Comprueba tu avance y ajusta", "q": "Entrenar no siempre significa avanzar. Una prueba de referencia te dice si de verdad te acercas a tu meta.", "p": ["Cada 4 a 6 semanas, repite la prueba de tu meta exactamente igual que la primera vez.", "En Metas pulsa Registrar prueba y anota el resultado.", "Con ese resultado decide: sigue con tu plan, cambia la meta o define una nueva."], "o": "Tu meta se actualiza sola y el ciclo vuelve a empezar desde el paso 2 o el 3, ahora con datos más claros.", "w": "Metas → Registrar prueba.", "go": "metas", "gl": "Ir a Metas"}];
+let CY=0;
+function cycleInit(root,app){
+ const n=STEPS.length,f=v=>v.toFixed(2),pos=i=>{const a=(-90+360/n*i)*Math.PI/180;return[50+36*Math.cos(a),50+36*Math.sin(a)]};
+ const arc=i=>{const[x1,y1]=pos(i),[x2,y2]=pos((i+1)%n);return`M${f(x1)} ${f(y1)}A36 36 0 0 1 ${f(x2)} ${f(y2)}`};
+ const draw=()=>{const s=STEPS[CY],nx=STEPS[(CY+1)%n];
+  root.innerHTML=`<div class="cy"><svg viewBox="0 0 100 100" aria-hidden="true"><circle class="rg" cx="50" cy="50" r="36"/><path class="ra" d="${arc(CY)}"/><g class="orb"><circle cx="50" cy="14" r="2.4"/></g></svg>
+  <div class="cc"><small>Paso ${CY+1} de ${n}</small><b>${s.t}</b><span>${CY===n-1?"Y vuelve a empezar":"Sigue: "+nx.t}</span></div>
+  ${STEPS.map((p,i)=>{const[x,y]=pos(i);return`<button type="button" class="nd" data-cy="${i}" style="left:${f(x)}%;top:${f(y)}%"${i===CY?' aria-current="step"':""} aria-label="Paso ${i+1}: ${p.t}"><i>${i+1}</i>${p.t}</button>`}).join("")}</div>
+  <div class="cp" aria-live="polite"><h3>${s.h}</h3><p>${s.q}</p><h4>Cómo se hace</h4><ol>${s.p.map(x=>`<li>${x}</li>`).join("")}</ol><h4>Qué obtienes</h4><p>${s.o}</p><p class="wh"><b>Dónde está en la app:</b> ${s.w}</p>
+  <div class="acts">${app?`<button type="button" class="btn s" data-gt="${s.go}">${s.gl}</button>`:""}<button type="button" class="btn o s pv" data-cy="${CY-1}">Anterior</button><button type="button" class="btn o s nx" data-cy="${CY+1}">Siguiente: ${nx.t}</button></div></div>`};
+ root.onclick=e=>{const b=e.target.closest("button");if(!b)return;if(b.dataset.gt)return go(b.dataset.gt);if(b.dataset.cy==null)return;
+  CY=(+b.dataset.cy+n)%n;draw();root.querySelector(b.classList.contains("nd")?`.nd[data-cy="${CY}"]`:b.classList.contains("pv")?".pv":".nx")?.focus()};
+ root.onkeydown=e=>{if(!e.target.classList.contains("nd"))return;const d={ArrowRight:1,ArrowDown:1,ArrowLeft:-1,ArrowUp:-1}[e.key];if(d){e.preventDefault();CY=(CY+d+n)%n;draw();root.querySelector(`.nd[data-cy="${CY}"]`).focus()}};
+ draw()}
+function renderAyuda(){
+ $("v-ayuda").innerHTML=`<div class="acts" style="margin:0 0 10px"><button class="btn o s" data-go="${profile?"hoy":"perfil"}">Volver</button></div><h2>Cómo funciona FLEXO</h2><p class="mu">FLEXO funciona como un ciclo: cada vuelta te da datos más claros sobre tu evolución. Toca un paso para ver qué hacer y dónde encontrarlo.</p><div id="cyr"></div><p class="mu" style="font-size:13px;margin-top:20px">FLEXO registra y analiza tus datos. No prescribe rutinas ni sustituye a entrenadores o profesionales de la salud. Escucha a tu cuerpo.</p>`;
+ cycleInit($("cyr"),true)}
+$("hlp").onclick=()=>go("ayuda");
+document.addEventListener("click",e=>{const a=e.target.closest("[data-help]");if(a){e.preventDefault();go("ayuda")}});
 /* ---------- Hoy, Progreso, Historial ---------- */
 const wk=s=>{const d=new Date(s+"T12:00:00");d.setDate(d.getDate()-((d.getDay()+6)%7));return iso(d)};
 function renderHoy(){
