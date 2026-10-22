@@ -68,8 +68,9 @@ a{color:var(--ac)}.tm{display:flex;gap:16px;align-items:center;flex-wrap:wrap}.t
 <div id="goals"></div>
 <div class="c"><h3>Nueva meta</h3>
 <div class="row"><div><label for="gs">Deporte</label><select id="gs"></select></div><div><label for="gm">Métrica</label><select id="gm"></select></div></div>
+<p class="mu" id="ghow" style="margin:8px 0 0"></p>
 <div id="gc" class="row hid"><div><label for="gcn">Nombre</label><input id="gcn" placeholder="Ej. Dominadas"></div><div><label for="gcu">Unidad</label><input id="gcu" placeholder="Ej. rep"></div><div><label for="gcd">Mejora si</label><select id="gcd"><option value="1">Sube</option><option value="0">Baja</option></select></div></div>
-<div class="row"><div><label for="gb">Hoy estás en <span id="gu1" class="mu"></span></label><input id="gb" type="number" step="any" inputmode="decimal"></div><div><label for="gt">Objetivo <span id="gu2" class="mu"></span></label><input id="gt" type="number" step="any" inputmode="decimal"></div><div><label for="gd">Fecha límite</label><input id="gd" type="date"></div></div>
+<div class="row"><div><label for="gb">Hoy estás en <span id="gu1" class="mu"></span></label><input id="gb" type="text" inputmode="decimal"></div><div><label for="gt">Objetivo <span id="gu2" class="mu"></span></label><input id="gt" type="text" inputmode="decimal"></div><div><label for="gd">Fecha límite</label><input id="gd" type="date"></div></div>
 <div class="acts"><button class="btn" id="gsave">Crear meta</button></div><div class="msg" id="gmsg" role="status"></div></div>
 </section>
 
@@ -93,6 +94,7 @@ a{color:var(--ac)}.tm{display:flex;gap:16px;align-items:center;flex-wrap:wrap}.t
 <section id="v-progreso" class="hid"></section>
 <section id="v-historial" class="hid"></section>
 
+<section id="v-prueba" class="hid"></section>
 <section id="v-plan" class="hid"></section>
 
 <section id="v-perfil" class="hid">
@@ -112,11 +114,18 @@ a{color:var(--ac)}.tm{display:flex;gap:16px;align-items:center;flex-wrap:wrap}.t
 const sb=supabase.createClient("https://glomtdofnkayvwslxqko.supabase.co","sb_publishable_uI9eipYEQzweVr9BgWNGAA_drTHHNzZ",{auth:{persistSession:true,autoRefreshToken:true}});
 const $=id=>document.getElementById(id),esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const SPORTS={gimnasio:{n:"Gimnasio",gym:1},running:{n:"Running",f:[["km","Distancia (km)"],["min","Tiempo (min)"]]},natacion:{n:"Natación",f:[["vueltas","Vueltas"],["largo","Largo de piscina (m)"],["min","Tiempo (min)"]]},ciclismo:{n:"Ciclismo",f:[["km","Distancia (km)"],["min","Tiempo (min)"]]},yoga:{n:"Yoga y movilidad",f:[]},otro:{n:"Otro",f:[]}};
-const METRICS={gimnasio:[["1RM sentadilla","kg",1],["1RM press de banca","kg",1],["1RM peso muerto","kg",1]],running:[["Tiempo en 5 km","min",0],["Tiempo en 10 km","min",0],["Tiempo en 21 km","min",0]],natacion:[["Tiempo en 400 m","min",0]],ciclismo:[["Tiempo en 20 km","min",0]]};
+const METRICS={
+gimnasio:[["Repeticiones con un peso fijo","repeticiones",1,"Elige un ejercicio y un peso (por ejemplo, sentadilla con 40 kg). Haz todas las repeticiones que puedas con buena técnica y cuéntalas. Usa siempre el mismo ejercicio y el mismo peso."],["Repeticiones seguidas sin peso","repeticiones",1,"Por ejemplo, flexiones o dominadas. Cuenta cuántas haces seguidas con buena técnica."],["Peso en una serie de 10 repeticiones","kg",1,"Anota el peso más alto con el que completas 10 repeticiones con buena técnica en un ejercicio que elijas."],["Tiempo sosteniendo una plancha","seg",1,"Mantén la plancha con buena postura y anota los segundos hasta que la técnica se pierda."]],
+running:[["Tiempo en 5 km","min",0,"Recorre 5 km con un esfuerzo exigente pero controlado y anota el tiempo. Puedes escribirlo como 28:30."],["Distancia en 12 minutos","km",1,"Corre o trota durante 12 minutos y anota la distancia recorrida en kilómetros."],["Tiempo en 10 km","min",0,"Recorre 10 km con un esfuerzo exigente pero controlado y anota el tiempo. Puedes escribirlo como 58:00."]],
+natacion:[["Tiempo en 200 m","min",0,"Nada 200 m con un esfuerzo exigente pero controlado y anota el tiempo. Puedes escribirlo como 4:30."],["Tiempo en 400 m","min",0,"Nada 400 m con un esfuerzo exigente pero controlado y anota el tiempo. Puedes escribirlo como 9:15."]],
+ciclismo:[["Tiempo en 20 km","min",0,"Recorre 20 km por una ruta que puedas repetir y anota el tiempo. Puedes escribirlo como 45:00."],["Distancia en 30 minutos","km",1,"Pedalea 30 minutos por la misma ruta y anota la distancia recorrida."]],
+yoga:[["Tiempo sosteniendo una postura","seg",1,"Elige una postura (por ejemplo, el árbol o la plancha) y anota cuántos segundos la sostienes con buena técnica."]]};
+const pv=(s,u)=>{s=String(s??"").trim().replace(",",".");if(s==="")return null;if(u==="min"&&s.includes(":")){const[m,x]=s.split(":");return(+m)+(+x)/60}return+s};
+const fv=(v,u)=>{v=Number(v);if(u!=="min")return fmtN(v);const t=Math.round(v*60);return Math.floor(t/60)+":"+String(t%60).padStart(2,"0")};
 const LEVELS=["principiante","intermedio","avanzado"],DAYS=["L","M","X","J","V","S","D"];
 const TABS=[["hoy","Hoy","M4 11l8-7 8 7v9H4z"],["metas","Metas","M12 3a9 9 0 100 18 9 9 0 000-18zM12 8a4 4 0 100 8 4 4 0 000-8z"],["registrar","Registrar","M12 5v14M5 12h14"],["progreso","Progreso","M3 17c3 0 4-6 8-6s4 4 9-2"],["historial","Historial","M5 7h14M5 12h14M5 17h9"]];
 const LANDING="index.html";document.querySelectorAll("[data-landing]").forEach(a=>a.href=LANDING);
-let daily=[],DS={},blocks=[],planned=[],PL=null,U=null,profile=null,goals=[],sessions=[],editId=null,view="hoy";
+let tests=[],TG=null,daily=[],DS={},blocks=[],planned=[],PL=null,U=null,profile=null,goals=[],sessions=[],editId=null,view="hoy";
 const iso=d=>d.toISOString().slice(0,10),today=()=>iso(new Date());
 const fmtD=s=>new Date(s+"T12:00:00").toLocaleDateString("es",{day:"numeric",month:"short",year:"numeric"});
 const num=v=>v===""||v==null?null:Number(v),msg=(id,t,k)=>{const e=$(id);e.textContent=t;e.className="msg "+(k||"")};
@@ -132,17 +141,17 @@ $("signup").onclick=async()=>{const{data,error}=await sb.auth.signUp({email:$("e
 $("out").onclick=async()=>{await sb.auth.signOut();U=null;show("auth")};
 async function enter(u){U=u;tLoad();show("app");await load();go(profile?"hoy":"perfil")}
 async function load(){
- const[p,g,s,bl,pl,dy]=await Promise.all([sb.from("flexo_profiles").select("*").eq("user_id",U.id).maybeSingle(),sb.from("flexo_goals").select("*").order("due_date"),sb.from("flexo_sessions").select("*,flexo_session_items(*)").order("session_date",{ascending:false}),sb.from("flexo_plan_blocks").select("*").order("start_date"),sb.from("flexo_planned_sessions").select("*").order("planned_date"),sb.from("flexo_daily_status").select("*").order("status_date",{ascending:false}).limit(400)]);
- profile=p.data;goals=g.data||[];sessions=s.data||[];blocks=bl.data||[];planned=pl.data||[];daily=dy.data||[];
+ const[p,g,s,bl,pl,dy,ts]=await Promise.all([sb.from("flexo_profiles").select("*").eq("user_id",U.id).maybeSingle(),sb.from("flexo_goals").select("*").order("due_date"),sb.from("flexo_sessions").select("*,flexo_session_items(*)").order("session_date",{ascending:false}),sb.from("flexo_plan_blocks").select("*").order("start_date"),sb.from("flexo_planned_sessions").select("*").order("planned_date"),sb.from("flexo_daily_status").select("*").order("status_date",{ascending:false}).limit(400),sb.from("flexo_tests").select("*").order("test_date")]);
+ profile=p.data;goals=g.data||[];sessions=s.data||[];blocks=bl.data||[];planned=pl.data||[];daily=dy.data||[];tests=ts.data||[];
 }
 
 /* ---------- Navegación ---------- */
 $("nav").innerHTML=TABS.map(([k,t,d])=>`<button data-v="${k}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="${d}"/></svg>${t}</button>`).join("");
 $("nav").onclick=e=>{const b=e.target.closest("button");if(b)go(b.dataset.v)};
-function go(v){view=v;["hoy","metas","registrar","progreso","historial","perfil","plan"].forEach(k=>$("v-"+k).classList.toggle("hid",k!==v));
+function go(v){view=v;["hoy","metas","registrar","progreso","historial","perfil","plan","prueba"].forEach(k=>$("v-"+k).classList.toggle("hid",k!==v));
  $("nav").classList.toggle("hid",!profile);
- document.querySelectorAll("nav button").forEach(b=>b.dataset.v===(v==="plan"?"metas":v)?b.setAttribute("aria-current","page"):b.removeAttribute("aria-current"));
- ({plan:renderPlan,hoy:renderHoy,metas:renderGoals,registrar:initReg,progreso:renderProg,historial:renderHist,perfil:renderPerfil})[v]();window.scrollTo(0,0)}
+ document.querySelectorAll("nav button").forEach(b=>b.dataset.v===(v==="plan"||v==="prueba"?"metas":v)?b.setAttribute("aria-current","page"):b.removeAttribute("aria-current"));
+ ({prueba:renderPrueba,plan:renderPlan,hoy:renderHoy,metas:renderGoals,registrar:initReg,progreso:renderProg,historial:renderHist,perfil:renderPerfil})[v]();window.scrollTo(0,0)}
 
 /* ---------- Perfil ---------- */
 function renderPerfil(){
@@ -166,19 +175,19 @@ function renderGoals(){
  $("goals").innerHTML=(act.length?act.map(goalCard).join(""):`<div class="c"><b>Aún no tienes metas activas.</b><p class="mu" style="margin:6px 0 0">Crea la primera abajo para ver tu avance.</p></div>`)+(done.length?`<h3>Cerradas</h3>`+done.map(goalCard).join(""):"");
  const sp=mySports();$("gs").innerHTML=sportOpts();fillMetrics()}
 function goalCard(g){const d=Math.ceil((new Date(g.due_date+"T12:00:00")-new Date())/864e5),p=Math.round(progress(g)*100);
- return`<div class="c"><h3>${esc(g.metric)}: ${g.base_value} → ${g.target_value} ${esc(g.unit)}</h3><div class="num">${p}%</div><div class="bar"><b style="width:${p}%"></b></div>
- <div class="mu">Hoy: ${g.current_value} ${esc(g.unit)} · ${g.status==="activa"?(d>=0?`faltan ${d} días`:`venció hace ${-d} días`):g.status} · ${fmtD(g.due_date)}</div>
- ${g.status==="activa"?`<div class="acts"><button class="btn s" data-a="plan" data-id="${g.id}">Plan semanal</button><button class="btn o s" data-a="cur" data-id="${g.id}">Actualizar valor actual</button><button class="btn o s" data-a="lograda" data-id="${g.id}">Marcar lograda</button><button class="btn o s" data-a="archivada" data-id="${g.id}">Archivar</button></div>`:""}</div>`}
-$("goals").onclick=async e=>{const b=e.target.closest("button");if(!b)return;const g=goals.find(x=>x.id===b.dataset.id);if(b.dataset.a==="plan"){PL=g.id;return go("plan")}let patch;
+ return`<div class="c"><h3>${esc(g.metric)}: ${fv(g.base_value,g.unit)} → ${fv(g.target_value,g.unit)} ${esc(g.unit)}</h3><div class="num">${p}%</div><div class="bar"><b style="width:${p}%"></b></div>
+ <div class="mu">Hoy: ${fv(g.current_value,g.unit)} ${esc(g.unit)} · ${g.status==="activa"?(d>=0?`faltan ${d} días`:`venció hace ${-d} días`):g.status} · ${fmtD(g.due_date)}</div>
+ ${g.status==="activa"?`<div class="acts"><button class="btn s" data-a="plan" data-id="${g.id}">Plan semanal</button><button class="btn o s" data-a="test" data-id="${g.id}">Registrar prueba</button><button class="btn o s" data-a="lograda" data-id="${g.id}">Marcar lograda</button><button class="btn o s" data-a="archivada" data-id="${g.id}">Archivar</button></div>`:""}</div>`}
+$("goals").onclick=async e=>{const b=e.target.closest("button");if(!b)return;const g=goals.find(x=>x.id===b.dataset.id);if(b.dataset.a==="plan"){PL=g.id;return go("plan")}if(b.dataset.a==="test"){TG=g.id;return go("prueba")}let patch;
  if(b.dataset.a==="cur"){const v=num(prompt(`Valor actual (${g.unit})`,g.current_value));if(v==null||isNaN(v))return;patch={current_value:v}}else patch={status:b.dataset.a};
  const{error}=await sb.from("flexo_goals").update(patch).eq("id",g.id);if(!error){Object.assign(g,patch);renderGoals()}};
 function fillMetrics(){const m=METRICS[$("gs").value]||[];$("gm").innerHTML=m.map((x,i)=>`<option value="${i}">${x[0]}</option>`).join("")+`<option value="x">Otra métrica</option>`;metricChange()}
-function metricChange(){const x=$("gm").value==="x";$("gc").classList.toggle("hid",!x);const m=(METRICS[$("gs").value]||[])[$("gm").value];$("gu1").textContent=$("gu2").textContent=m?`(${m[1]})`:""}
+function metricChange(){const x=$("gm").value==="x";$("gc").classList.toggle("hid",!x);const m=(METRICS[$("gs").value]||[])[$("gm").value];$("gu1").textContent=$("gu2").textContent=m?`(${m[1]})`:"";$("ghow").textContent=m?.[3]||"";$("gb").placeholder=$("gt").placeholder=m&&m[1]==="min"?"Ej. 52:30":""}
 $("gs").onchange=fillMetrics;$("gm").onchange=metricChange;
 $("gsave").onclick=async()=>{
  const sport=$("gs").value,custom=$("gm").value==="x",m=custom?[$("gcn").value.trim(),$("gcu").value.trim(),+$("gcd").value]:METRICS[sport][$("gm").value];
- const b=num($("gb").value),t=num($("gt").value),d=$("gd").value;
- if(!m[0]||!m[1]||b==null||t==null||!d)return msg("gmsg","Completa la métrica, tu punto de partida, el objetivo y la fecha.","er");
+ const b=pv($("gb").value,m[1]),t=pv($("gt").value,m[1]),d=$("gd").value;
+ if(!m[0]||!m[1]||b==null||t==null||isNaN(b)||isNaN(t)||!d)return msg("gmsg","Completa la métrica, tu punto de partida, el objetivo y la fecha.","er");
  if(d<=today())return msg("gmsg","La fecha límite debe ser posterior a hoy.","er");
  if(m[2]?t<=b:t>=b)return msg("gmsg",m[2]?"En esta métrica mejorar es subir: el objetivo debe ser mayor que tu punto de partida.":"En esta métrica mejorar es bajar: el objetivo debe ser menor que tu punto de partida.","er");
  const{data,error}=await sb.from("flexo_goals").insert({sport,metric:m[0],unit:m[1],base_value:b,target_value:t,current_value:b,higher_is_better:!!m[2],due_date:d}).select().single();
@@ -299,7 +308,7 @@ function planCards(ws,lb){
  const T=rows.reduce((a,r)=>a+r.n,0),D=rows.reduce((a,r)=>a+r.d,0);
  return card("Cumplimiento del plan (%)",barChart(rows.map(r=>r.n?Math.round(r.d/r.n*100):0),lb,"cumplimiento"),`${D} de ${T} sesiones planificadas realizadas en el periodo. La semana en curso aún no termina y las semanas sin plan aparecen en 0.`)+card("Minutos: plan y real",pairChart(rows.map(r=>r.pm),rows.map(r=>r.rm),lb),"Gris: planificado. Lima: realizado en las sesiones que enlazaste con el plan.")}
 /* ---------- Alertas (observaciones de tus datos) ---------- */
-const AL={carga:30,cargaMinSesiones:2,inactDias:10,omitidas:2,metaDias:14,rpeAlto:9,max:4};
+const AL={carga:30,cargaMinSesiones:2,inactDias:10,testSemanas:4,omitidas:2,metaDias:14,rpeAlto:9,max:4};
 const alKey=()=>"flexo_alertas_"+U.id,alOff=()=>{try{return JSON.parse(localStorage.getItem(alKey()))||[]}catch(e){return[]}};
 const alHide=id=>{try{const a=alOff();a.push(id);localStorage.setItem(alKey(),JSON.stringify(a.slice(-60)))}catch(e){}};
 function computeAlerts(){
@@ -315,6 +324,8 @@ function computeAlerts(){
  act.forEach(g=>{const d=Math.ceil((new Date(g.due_date+"T12:00:00")-new Date(T+"T12:00:00"))/864e5),p=Math.round(progress(g)*100);
   if(d<0)out.push({id:"venc:"+g.id,t:"Meta",m:`La fecha de tu meta «${esc(g.metric)}» venció hace ${-d} días. Puedes marcarla como lograda, archivarla o definir una nueva.`,a:"metas",al:"Ver metas"});
   else if(d<=AL.metaDias)out.push({id:"vence:"+g.id,t:"Meta",m:`Tu meta «${esc(g.metric)}» ${d===0?"vence hoy":`vence en ${d} días`} y llevas ${p} % de avance.`,a:"metas",al:"Ver metas"})});
+ act.forEach(g=>{const lt=tests.filter(t=>t.goal_id===g.id).map(t=>t.test_date).sort().pop()||(g.created_at||"").slice(0,10);
+  if(lt){const w=Math.floor((new Date(T+"T12:00:00")-new Date(lt+"T12:00:00"))/6048e5);if(w>=AL.testSemanas)out.push({id:"test:"+g.id+":"+lt,t:"Prueba",m:`Han pasado ${w} semanas desde tu última medición de «${esc(g.metric)}».`,a:"prueba:"+g.id,al:"Registrar prueba"})}});
  const r3=sessions.slice(0,3);
  if(r3.length===3&&r3.every(s=>s.rpe>=AL.rpeAlto)&&r3[0].session_date>=day(14))out.push({id:"rpe:"+r3[0].session_date,t:"Esfuerzo",m:`Tus últimas 3 sesiones tuvieron un RPE de ${AL.rpeAlto} o más.`});
  const r3d=daily.filter(d=>d.status_date>=day(6)).sort((a,b)=>b.status_date.localeCompare(a.status_date)).slice(0,3),dol=r3d.filter(d=>d.pain>=3);
@@ -324,7 +335,7 @@ function computeAlerts(){
 function alertsHtml(){const a=computeAlerts();if(!a.length)return"";
  return`<div class="c"><h3>Alertas</h3>${a.map(x=>`<div class="ses"><span class="pill">${x.t}</span> ${x.m}<div class="acts" style="margin-top:8px">${x.a?`<button class="btn s" data-aa="${x.a}">${x.al}</button>`:""}<button class="btn o s" data-ah="${x.id}">Entendido</button></div></div>`).join("")}<p class="mu" style="margin:10px 0 0;font-size:13px">Son observaciones de tus datos, no recomendaciones. Escucha a tu cuerpo.</p></div>`}
 document.addEventListener("click",e=>{const x=e.target.closest("[data-ah]");if(x){alHide(x.dataset.ah);return renderHoy()}
- const a=e.target.closest("[data-aa]");if(a){const[k,id]=a.dataset.aa.split(":");if(k==="plan"){PL=id;go("plan")}else go(k)}});
+ const a=e.target.closest("[data-aa]");if(a){const[k,id]=a.dataset.aa.split(":");if(k==="plan"){PL=id;go("plan")}else if(k==="prueba"){TG=id;go("prueba")}else go(k)}});
 /* ---------- Estado diario (opcional) ---------- */
 const DL={sleep:["Sueño (horas)","sleep_hours","Horas dormidas la noche anterior."],fatigue:["Fatiga (1–5)","fatigue","1 = muy descansado, 5 = muy cansado."],pain:["Dolor (0–5)","pain","0 = ninguno, 5 = muy fuerte."],mood:["Ánimo (1–5)","mood","1 = bajo, 5 = muy bueno."]};
 const statusText=t=>[t.sleep_hours!=null&&`Sueño ${t.sleep_hours} h`,t.fatigue!=null&&`Fatiga ${t.fatigue}/5`,t.pain!=null&&`Dolor ${t.pain}/5`,t.mood!=null&&`Ánimo ${t.mood}/5`].filter(Boolean).join(" · ");
@@ -351,6 +362,29 @@ function dailyCard(ws){
  if(!daily.some(d=>d.status_date>=ws[0]))return card("Estado diario",`<p class="mu" style="margin:0">Aún no hay registros de estado en este periodo. Puedes anotarlo en Hoy; es opcional.</p>`);
  const L=DL[PF.ds],pts=daily.filter(d=>d.status_date>=ws[0]&&d[L[1]]!=null).sort((a,b)=>a.status_date.localeCompare(b.status_date)).map(d=>({x:shortD(d.status_date),y:Number(d[L[1]])})),avg=pts.length?pts.reduce((a,p)=>a+p.y,0)/pts.length:0;
  return`<div class="sel"><div><label for="pfd">Estado diario</label><select id="pfd">${opts(Object.entries(DL).map(([k,v])=>[k,v[0]]),PF.ds)}</select></div></div>`+card(L[0],lineChart(pts,L[0]),`${L[2]}${pts.length?` Promedio del periodo: ${fmtN(avg)}.`:""} Cruza estos datos con tu historial: allí ves cómo estabas cada día que entrenaste.`)}
+/* ---------- Pruebas de referencia ---------- */
+const howTo=g=>{for(const l of Object.values(METRICS))for(const m of l)if(m[0]===g.metric)return m[3];return""};
+async function syncGoal(g){const ts=tests.filter(t=>t.goal_id===g.id).sort((a,b)=>a.test_date.localeCompare(b.test_date)||String(a.created_at).localeCompare(String(b.created_at))),cur=ts.length?Number(ts[ts.length-1].value):Number(g.base_value);
+ await sb.from("flexo_goals").update({current_value:cur}).eq("id",g.id);g.current_value=cur}
+function renderPrueba(){
+ const g=goals.find(x=>x.id===TG);if(!g)return go("metas");
+ const ts=tests.filter(t=>t.goal_id===g.id).sort((a,b)=>a.test_date.localeCompare(b.test_date)),hw=howTo(g),u=esc(g.unit);
+ let h=`<div class="acts" style="margin:0 0 10px"><button class="btn o s" data-go="metas">Volver a Metas</button></div><h2>Prueba: ${esc(g.metric)}</h2><p class="mu">Repite siempre la misma prueba, de la misma forma, para saber si de verdad avanzas hacia tu meta. Cada 4 a 6 semanas es suficiente.</p>
+ <div class="c"><h3>Nueva prueba</h3>${hw?`<p class="mu" style="margin:0 0 6px">${esc(hw)}</p>`:""}<div class="row"><div><label for="tv">Resultado (${u})</label><input id="tv" type="text" inputmode="decimal" placeholder="${g.unit==="min"?"Ej. 52:30":""}"></div><div><label for="td">Fecha</label><input id="td" type="date" value="${today()}"></div></div>
+ <label for="tn">Notas (opcional)</label><textarea id="tn"></textarea><div class="acts"><button class="btn" id="tsave" type="button">Guardar prueba</button></div><div class="msg" id="tmsg" role="status"></div></div>`;
+ const pts=[{x:"Inicio",y:Number(g.base_value)},...ts.map(t=>({x:shortD(t.test_date),y:Number(t.value)}))];
+ h+=card("Tu avance en las pruebas",lineChart(pts,g.metric),`Punto de partida: ${fv(g.base_value,g.unit)} ${u}. Objetivo: ${fv(g.target_value,g.unit)} ${u}. ${g.higher_is_better?"En esta métrica, un número mayor es mejor.":"En esta métrica, un número menor es mejor."}`);
+ if(ts.length)h+=`<div class="c"><h3>Pruebas registradas</h3>${ts.slice().reverse().map(t=>`<div class="ses"><b>${fmtD(t.test_date)}</b> <span class="pill">${fv(t.value,g.unit)} ${u}</span>${t.notes?` <span class="mu">${esc(t.notes)}</span>`:""} <button class="btn o s" data-td="${t.id}">Quitar</button></div>`).join("")}</div>`;
+ $("v-prueba").innerHTML=h}
+$("v-prueba").onclick=async e=>{const b=e.target.closest("button");if(!b)return;const g=goals.find(x=>x.id===TG);
+ if(b.dataset.td){const{error}=await sb.from("flexo_tests").delete().eq("id",b.dataset.td);if(error)return msg("tmsg","No se pudo quitar: "+error.message,"er");tests=tests.filter(t=>t.id!==b.dataset.td);await syncGoal(g);return renderPrueba()}
+ if(b.id==="tsave"){const v=pv($("tv").value,g.unit),d=$("td").value;
+  if(v==null||isNaN(v)||!d)return msg("tmsg","Indica el resultado (por ejemplo 28:30 o 12) y la fecha.","er");
+  if(d>today())return msg("tmsg","La fecha no puede ser futura.","er");
+  b.disabled=true;const{data,error}=await sb.from("flexo_tests").insert({goal_id:g.id,test_date:d,value:v,notes:$("tn").value.trim()||null}).select().single();b.disabled=false;
+  if(error)return msg("tmsg","No se pudo guardar: "+error.message,"er");
+  tests.push(data);await syncGoal(g);renderPrueba();
+  const ok=g.higher_is_better?v>=g.target_value:v<=g.target_value;msg("tmsg",ok?"Prueba guardada. Llegaste al valor objetivo: puedes marcar la meta como lograda en Metas.":"Prueba guardada. Tu meta se actualizó con este resultado.","ok")}};
 /* ---------- Hoy, Progreso, Historial ---------- */
 const wk=s=>{const d=new Date(s+"T12:00:00");d.setDate(d.getDate()-((d.getDay()+6)%7));return iso(d)};
 function renderHoy(){
@@ -360,7 +394,7 @@ function renderHoy(){
  const stP=p=>doneP.has(p.id)?["Hecha","ok"]:p.planned_date<today()?["Omitida",""]:["Pendiente",""];
  const planHtml=wp.length?`<div class="c"><h3>Plan de esta semana</h3><p class="mu" style="margin:0 0 8px">${wp.filter(p=>doneP.has(p.id)).length} de ${wp.length} sesiones hechas</p>${wp.map(p=>{const[l,k]=stP(p);return`<div class="ses"><b>${shortD(p.planned_date)}</b> <span class="pill">${esc(SPORTS[p.sport]?.n||p.sport)}</span><span class="pill">${p.duration_min} min</span><span class="pill ${k}">${l}</span>${l==="Pendiente"?` <button class="btn s" data-pl="${p.id}">Registrar</button>`:""}</div>`}).join("")}</div>`:(act.length&&!planned.length?`<div class="c"><b>Organiza tu semana.</b><p class="mu" style="margin:6px 0 12px">Crea un plan para tu meta y compáralo con lo que registres.</p><button class="btn s" data-go="metas">Ir a Metas</button></div>`:"");
  $("v-hoy").innerHTML=`<h2>Hoy</h2>${alertsHtml()}${dailyHtml()}
- ${act.length?act.map(g=>`<div class="c"><h3>${esc(g.metric)}</h3><div class="num">${Math.round(progress(g)*100)}%</div><div class="bar"><b style="width:${progress(g)*100}%"></b></div><div class="mu">${g.current_value} de ${g.target_value} ${esc(g.unit)} · hasta el ${fmtD(g.due_date)}</div></div>`).join(""):`<div class="c"><b>Define tu primera meta.</b><p class="mu">Con un punto de partida, un objetivo y una fecha, tus sesiones tienen dirección.</p><button class="btn s" data-go="metas">Crear meta</button></div>`}
+ ${act.length?act.map(g=>`<div class="c"><h3>${esc(g.metric)}</h3><div class="num">${Math.round(progress(g)*100)}%</div><div class="bar"><b style="width:${progress(g)*100}%"></b></div><div class="mu">${fv(g.current_value,g.unit)} de ${fv(g.target_value,g.unit)} ${esc(g.unit)} · hasta el ${fmtD(g.due_date)}</div></div>`).join(""):`<div class="c"><b>Define tu primera meta.</b><p class="mu">Con un punto de partida, un objetivo y una fecha, tus sesiones tienen dirección.</p><button class="btn s" data-go="metas">Crear meta</button></div>`}
  ${planHtml}<div class="c"><h3>Esta semana</h3><div class="row"><div><div class="num">${sw.length}</div><div class="mu">sesiones${days?` de ${days} días disponibles`:""}</div></div><div><div class="num">${load}</div><div class="mu">de carga (duración × RPE)</div></div></div>
  ${last?`<p class="mu" style="margin:14px 0 0">Última sesión: ${SPORTS[last.sport]?.n||last.sport}, ${fmtD(last.session_date)}.</p>`:""}</div>
  <div class="acts"><button class="btn" data-go="registrar">Registrar sesión</button><button class="btn o" data-go="perfil">Editar perfil</button></div>
