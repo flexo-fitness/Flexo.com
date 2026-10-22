@@ -46,7 +46,7 @@ nav svg{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:2;stro
 .it{display:grid;grid-template-columns:2fr 1fr 1fr 1fr 1fr;gap:6px;margin-bottom:6px}.it input,.it select{padding:10px 8px}
 .wb{display:grid;grid-template-columns:70px 1fr 56px;gap:8px;align-items:center;font-size:13px;margin:8px 0}.wb .bar{margin:0}
 .ses{border-top:1px solid var(--ln);padding:12px 0}.ses:first-child{border:0}
-a{color:var(--ac)}.tm{display:flex;gap:16px;align-items:center;flex-wrap:wrap}.tm .num{font-size:24px;font-variant-numeric:tabular-nums}.tm .row{flex:1}.sel{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin:12px 0 16px}.kp .num{font-size:28px;font-variant-numeric:tabular-nums}.dl{font-size:12px;color:var(--mu)}.pill{font-size:12px;font-weight:600;border:1px solid var(--ln);border-radius:99px;padding:2px 10px;margin-right:6px}
+a{color:var(--ac)}.tm{display:flex;gap:16px;align-items:center;flex-wrap:wrap}.tm .num{font-size:24px;font-variant-numeric:tabular-nums}.tm .row{flex:1}.sel{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin:12px 0 16px}.kp .num{font-size:28px;font-variant-numeric:tabular-nums}.dl{font-size:12px;color:var(--mu)}.pb{display:grid;grid-template-columns:2fr 1fr auto;gap:8px;margin-bottom:8px}.pw{display:grid;grid-template-columns:90px 1fr 80px;gap:8px;align-items:center;margin-bottom:8px}.pw span{font-weight:600;font-size:14px}.pill.ok{border-color:var(--ac);color:var(--ac)}.pill{font-size:12px;font-weight:600;border:1px solid var(--ln);border-radius:99px;padding:2px 10px;margin-right:6px}
 @media(max-width:480px){.it{grid-template-columns:1fr 1fr}.it input:first-child{grid-column:1/-1}}
 @media(prefers-reduced-motion:no-preference){.bar b{transition:width .6s cubic-bezier(.22,1,.36,1)}}
 </style></head><body>
@@ -82,7 +82,7 @@ a{color:var(--ac)}.tm{display:flex;gap:16px;align-items:center;flex-wrap:wrap}.t
 <div class="mu" id="tsum" role="status" style="margin-top:10px"></div></div>
 <div class="c">
 <div class="row"><div><label for="rd">Fecha</label><input id="rd" type="date"></div><div><label for="rs">Deporte</label><select id="rs"></select></div></div>
-<div class="row"><div><label for="rm">Duración (min)</label><input id="rm" type="number" min="1" inputmode="numeric"></div><div><label for="rg">Meta vinculada</label><select id="rg"></select></div></div>
+<div class="row"><div><label for="rm">Duración (min)</label><input id="rm" type="number" min="1" inputmode="numeric"></div><div><label for="rg">Meta vinculada</label><select id="rg"></select></div><div><label for="rp">Sesión del plan</label><select id="rp"></select></div></div>
 <label for="rr">Esfuerzo percibido (RPE): <b id="rrv">5</b> de 10</label><input id="rr" type="range" min="1" max="10" value="5">
 <div class="mu" id="rload"></div>
 <div id="rf"></div>
@@ -92,6 +92,8 @@ a{color:var(--ac)}.tm{display:flex;gap:16px;align-items:center;flex-wrap:wrap}.t
 
 <section id="v-progreso" class="hid"></section>
 <section id="v-historial" class="hid"></section>
+
+<section id="v-plan" class="hid"></section>
 
 <section id="v-perfil" class="hid">
 <h2>Tu perfil</h2><p class="mu">Con deporte y días disponibles ya puedes empezar. El resto es opcional.</p>
@@ -114,7 +116,7 @@ const METRICS={gimnasio:[["1RM sentadilla","kg",1],["1RM press de banca","kg",1]
 const LEVELS=["principiante","intermedio","avanzado"],DAYS=["L","M","X","J","V","S","D"];
 const TABS=[["hoy","Hoy","M4 11l8-7 8 7v9H4z"],["metas","Metas","M12 3a9 9 0 100 18 9 9 0 000-18zM12 8a4 4 0 100 8 4 4 0 000-8z"],["registrar","Registrar","M12 5v14M5 12h14"],["progreso","Progreso","M3 17c3 0 4-6 8-6s4 4 9-2"],["historial","Historial","M5 7h14M5 12h14M5 17h9"]];
 const LANDING="index.html";document.querySelectorAll("[data-landing]").forEach(a=>a.href=LANDING);
-let U=null,profile=null,goals=[],sessions=[],editId=null,view="hoy";
+let blocks=[],planned=[],PL=null,U=null,profile=null,goals=[],sessions=[],editId=null,view="hoy";
 const iso=d=>d.toISOString().slice(0,10),today=()=>iso(new Date());
 const fmtD=s=>new Date(s+"T12:00:00").toLocaleDateString("es",{day:"numeric",month:"short",year:"numeric"});
 const num=v=>v===""||v==null?null:Number(v),msg=(id,t,k)=>{const e=$(id);e.textContent=t;e.className="msg "+(k||"")};
@@ -130,17 +132,17 @@ $("signup").onclick=async()=>{const{data,error}=await sb.auth.signUp({email:$("e
 $("out").onclick=async()=>{await sb.auth.signOut();U=null;show("auth")};
 async function enter(u){U=u;tLoad();show("app");await load();go(profile?"hoy":"perfil")}
 async function load(){
- const[p,g,s]=await Promise.all([sb.from("flexo_profiles").select("*").eq("user_id",U.id).maybeSingle(),sb.from("flexo_goals").select("*").order("due_date"),sb.from("flexo_sessions").select("*,flexo_session_items(*)").order("session_date",{ascending:false})]);
- profile=p.data;goals=g.data||[];sessions=s.data||[];
+ const[p,g,s,bl,pl]=await Promise.all([sb.from("flexo_profiles").select("*").eq("user_id",U.id).maybeSingle(),sb.from("flexo_goals").select("*").order("due_date"),sb.from("flexo_sessions").select("*,flexo_session_items(*)").order("session_date",{ascending:false}),sb.from("flexo_plan_blocks").select("*").order("start_date"),sb.from("flexo_planned_sessions").select("*").order("planned_date")]);
+ profile=p.data;goals=g.data||[];sessions=s.data||[];blocks=bl.data||[];planned=pl.data||[];
 }
 
 /* ---------- Navegación ---------- */
 $("nav").innerHTML=TABS.map(([k,t,d])=>`<button data-v="${k}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="${d}"/></svg>${t}</button>`).join("");
 $("nav").onclick=e=>{const b=e.target.closest("button");if(b)go(b.dataset.v)};
-function go(v){view=v;["hoy","metas","registrar","progreso","historial","perfil"].forEach(k=>$("v-"+k).classList.toggle("hid",k!==v));
+function go(v){view=v;["hoy","metas","registrar","progreso","historial","perfil","plan"].forEach(k=>$("v-"+k).classList.toggle("hid",k!==v));
  $("nav").classList.toggle("hid",!profile);
- document.querySelectorAll("nav button").forEach(b=>b.dataset.v===v?b.setAttribute("aria-current","page"):b.removeAttribute("aria-current"));
- ({hoy:renderHoy,metas:renderGoals,registrar:initReg,progreso:renderProg,historial:renderHist,perfil:renderPerfil})[v]();window.scrollTo(0,0)}
+ document.querySelectorAll("nav button").forEach(b=>b.dataset.v===(v==="plan"?"metas":v)?b.setAttribute("aria-current","page"):b.removeAttribute("aria-current"));
+ ({plan:renderPlan,hoy:renderHoy,metas:renderGoals,registrar:initReg,progreso:renderProg,historial:renderHist,perfil:renderPerfil})[v]();window.scrollTo(0,0)}
 
 /* ---------- Perfil ---------- */
 function renderPerfil(){
@@ -166,8 +168,8 @@ function renderGoals(){
 function goalCard(g){const d=Math.ceil((new Date(g.due_date+"T12:00:00")-new Date())/864e5),p=Math.round(progress(g)*100);
  return`<div class="c"><h3>${esc(g.metric)}: ${g.base_value} → ${g.target_value} ${esc(g.unit)}</h3><div class="num">${p}%</div><div class="bar"><b style="width:${p}%"></b></div>
  <div class="mu">Hoy: ${g.current_value} ${esc(g.unit)} · ${g.status==="activa"?(d>=0?`faltan ${d} días`:`venció hace ${-d} días`):g.status} · ${fmtD(g.due_date)}</div>
- ${g.status==="activa"?`<div class="acts"><button class="btn s" data-a="cur" data-id="${g.id}">Actualizar valor actual</button><button class="btn o s" data-a="lograda" data-id="${g.id}">Marcar lograda</button><button class="btn o s" data-a="archivada" data-id="${g.id}">Archivar</button></div>`:""}</div>`}
-$("goals").onclick=async e=>{const b=e.target.closest("button");if(!b)return;const g=goals.find(x=>x.id===b.dataset.id);let patch;
+ ${g.status==="activa"?`<div class="acts"><button class="btn s" data-a="plan" data-id="${g.id}">Plan semanal</button><button class="btn o s" data-a="cur" data-id="${g.id}">Actualizar valor actual</button><button class="btn o s" data-a="lograda" data-id="${g.id}">Marcar lograda</button><button class="btn o s" data-a="archivada" data-id="${g.id}">Archivar</button></div>`:""}</div>`}
+$("goals").onclick=async e=>{const b=e.target.closest("button");if(!b)return;const g=goals.find(x=>x.id===b.dataset.id);if(b.dataset.a==="plan"){PL=g.id;return go("plan")}let patch;
  if(b.dataset.a==="cur"){const v=num(prompt(`Valor actual (${g.unit})`,g.current_value));if(v==null||isNaN(v))return;patch={current_value:v}}else patch={status:b.dataset.a};
  const{error}=await sb.from("flexo_goals").update(patch).eq("id",g.id);if(!error){Object.assign(g,patch);renderGoals()}};
 function fillMetrics(){const m=METRICS[$("gs").value]||[];$("gm").innerHTML=m.map((x,i)=>`<option value="${i}">${x[0]}</option>`).join("")+`<option value="x">Otra métrica</option>`;metricChange()}
@@ -186,7 +188,7 @@ $("gsave").onclick=async()=>{
 /* ---------- Registro ---------- */
 function initReg(){
  if(!editId){$("rd").value=today();$("rm").value="";$("rr").value=5;$("rn").value="";$("rt").textContent="Registrar sesión";$("rcancel").classList.add("hid")}
- const keep=$("rs").value;$("rs").innerHTML=sportOpts(keep);regSport();rpeLoad();$("tcard").classList.toggle("hid",!!editId);tRender()}
+ const keep=$("rs").value;$("rs").innerHTML=sportOpts(keep);regSport();fillPlanned();rpeLoad();$("tcard").classList.toggle("hid",!!editId);tRender()}
 function regSport(){const sp=$("rs").value,s=SPORTS[sp];
  $("rg").innerHTML=`<option value="">Sin meta</option>`+goals.filter(g=>g.status==="activa"&&g.sport===sp).map(g=>`<option value="${g.id}">${esc(g.metric)}</option>`).join("");
  if(s.gym)$("rf").innerHTML=`<h3 style="margin-top:16px">Series</h3><div id="its"></div><button class="btn o s" id="addset" type="button">Añadir serie</button>`,addSet();
@@ -196,7 +198,7 @@ function regSport(){const sp=$("rs").value,s=SPORTS[sp];
 function addSet(copy){const w=$("its"),last=w.lastElementChild,d=document.createElement("div");d.className="it";
  d.innerHTML=`<input aria-label="Ejercicio" placeholder="Ejercicio" value="${esc(copy&&last?last.children[0].value:"")}"><input aria-label="Repeticiones" placeholder="Reps" type="number" inputmode="numeric"><input aria-label="Peso" placeholder="Peso" type="number" step="any" inputmode="decimal"><select aria-label="Unidad"><option>kg</option><option>lb</option></select><input aria-label="Descanso en segundos" placeholder="Desc. (s)" type="number" inputmode="numeric">`;w.appendChild(d)}
 const rpeLoad=()=>{$("rrv").textContent=$("rr").value;const m=num($("rm").value);$("rload").textContent=m?`Carga de la sesión: ${m*$("rr").value} (duración × RPE)`:""};
-$("rr").oninput=$("rm").oninput=rpeLoad;$("rs").onchange=()=>{regSport();tRender()};
+$("rr").oninput=$("rm").oninput=rpeLoad;$("rs").onchange=()=>{regSport();fillPlanned();tRender()};$("rd").onchange=()=>fillPlanned();$("rp").onchange=()=>{const p=planned.find(x=>x.id===$("rp").value);if(p){if(!$("rm").value){$("rm").value=p.duration_min;rpeLoad()}$("rg").value=p.goal_id}};
 $("rsave").onclick=async()=>{
  const sp=$("rs").value,s=SPORTS[sp],dur=parseInt($("rm").value);
  if(!$("rd").value||!dur||dur<1)return msg("rmsg","Indica la fecha y una duración mayor a 0.","er");
@@ -204,7 +206,7 @@ $("rsave").onclick=async()=>{
  if(s.gym)$("its").querySelectorAll(".it").forEach((r,i)=>{const[n,re,w,u,rs]=[...r.children].map(x=>x.value);if(n.trim()&&re)items.push({name:n.trim(),data:{reps:+re,weight:w===""?null:+w,unit:u,rest:rs===""?null:+rs}})});
  else if(s.f.length){const data={};$("rf").querySelectorAll("[data-k]").forEach(i=>{if(i.value!=="")data[i.dataset.k]=+i.value});if(Object.keys(data).length)items.push({name:s.n,data})}
  if(s.gym&&!items.length)return msg("rmsg","Añade al menos una serie con ejercicio y repeticiones.","er");
- const row={session_date:$("rd").value,sport:sp,duration_min:dur,rpe:+$("rr").value,notes:$("rn").value.trim()||null,goal_id:$("rg").value||null,rest_seconds:s.gym?items.reduce((a,i)=>a+(i.data.rest||0),0):0};
+ const row={session_date:$("rd").value,sport:sp,duration_min:dur,rpe:+$("rr").value,notes:$("rn").value.trim()||null,goal_id:$("rg").value||null,planned_session_id:$("rp").value||null,rest_seconds:s.gym?items.reduce((a,i)=>a+(i.data.rest||0),0):0};
  $("rsave").disabled=true;let sid=editId,error;
  if(editId){({error}=await sb.from("flexo_sessions").update(row).eq("id",editId));if(!error)await sb.from("flexo_session_items").delete().eq("session_id",editId)}
  else{const r=await sb.from("flexo_sessions").insert(row).select().single();error=r.error;sid=r.data?.id}
@@ -234,14 +236,79 @@ $("tclr").onclick=()=>{if(!confirm("Se borrará el tiempo contado. ¿Reiniciar e
 setInterval(()=>{if(view==="registrar"&&T&&!T.end)tRender()},500);
 $("rcancel").onclick=()=>{editId=null;go("historial")};
 
+/* ---------- Plan semanal ---------- */
+const DN=["Lunes","Martes","Miércoles","Jueves","Viernes","Sábado","Domingo"];
+function fillPlanned(keep){const sp=$("rs").value,w=wk($("rd").value||today()),used=new Set(sessions.filter(s=>s.id!==editId).map(s=>s.planned_session_id).filter(Boolean));
+ const o=planned.filter(p=>p.sport===sp&&wk(p.planned_date)===w&&(!used.has(p.id)||p.id===keep));
+ $("rp").innerHTML=`<option value="">Sin plan</option>`+o.map(p=>{const g=goals.find(x=>x.id===p.goal_id);return`<option value="${p.id}">${shortD(p.planned_date)} · ${p.duration_min} min${g?" · "+esc(g.metric):""}</option>`}).join("");
+ if(keep)$("rp").value=keep}
+function startPlanned(id){const p=planned.find(x=>x.id===id);if(!p)return;editId=null;go("registrar");$("rs").value=p.sport;regSport();$("rd").value=today();fillPlanned(id);$("rm").value=p.duration_min;$("rg").value=p.goal_id;rpeLoad();tRender()}
+document.addEventListener("click",e=>{const b=e.target.closest("[data-pl]");if(b)startPlanned(b.dataset.pl)});
+function planForm(g){return`<div class="c"><h3>Bloques (opcional)</h3><p class="mu" style="margin-top:0">Divide el plan en fases con el nombre y la duración que tú elijas.</p><div id="pbl"></div><button class="btn o s" id="pbadd" type="button">Añadir bloque</button></div>
+ <div class="c"><h3>Tu semana tipo</h3><p class="mu" style="margin-top:0">Elige qué días entrenas. FLEXO repite esta semana hasta la fecha de tu meta (${fmtD(g.due_date)}).</p>${DN.map((n,i)=>`<div class="pw"><span>${n}</span><select data-ps="${i}" aria-label="Deporte del ${n.toLowerCase()}"><option value="">Descanso</option>${sportOpts()}</select><input data-pm="${i}" type="number" min="1" inputmode="numeric" placeholder="min" aria-label="Minutos del ${n.toLowerCase()}"></div>`).join("")}
+ <div class="acts"><button class="btn" id="pgen" type="button">Generar plan</button></div><div class="msg" id="pmsg2" role="status"></div></div>`}
+function addBlock(){const d=document.createElement("div");d.className="pb";d.innerHTML=`<input aria-label="Nombre del bloque" placeholder="Nombre (ej. Base)"><input aria-label="Semanas" type="number" min="1" inputmode="numeric" placeholder="Semanas"><button class="btn o s" type="button">Quitar</button>`;d.lastChild.onclick=()=>d.remove();$("pbl").appendChild(d)}
+function renderPlan(){
+ const g=goals.find(x=>x.id===PL);if(!g)return go("metas");
+ const ps=planned.filter(p=>p.goal_id===g.id),bs=blocks.filter(b=>b.goal_id===g.id),done=new Set(sessions.map(s=>s.planned_session_id).filter(Boolean)),T=today();
+ const st=p=>done.has(p.id)?["Hecha","ok"]:p.planned_date<T?["Omitida",""]:["Pendiente",""];
+ let h=`<div class="acts" style="margin:0 0 10px"><button class="btn o s" data-go="metas">Volver a Metas</button></div><h2>Plan: ${esc(g.metric)}</h2><p class="mu">Hasta el ${fmtD(g.due_date)}. Las sesiones las defines tú; FLEXO las organiza y las compara con lo que registres.</p>`;
+ if(!ps.length){$("v-plan").innerHTML=h+planForm(g);const lastMin=sp=>sessions.find(s=>s.sport===sp)?.duration_min||"";
+  $("v-plan").querySelectorAll("[data-ps]").forEach(s=>{const i=+s.dataset.ps;if(profile?.days?.includes(i+1)){s.value=g.sport;$("v-plan").querySelector(`[data-pm="${i}"]`).value=lastMin(g.sport)}});return}
+ const past=ps.filter(p=>p.planned_date<T||done.has(p.id)),hechas=past.filter(p=>done.has(p.id)).length,pct=past.length?Math.round(hechas/past.length*100):0;
+ h+=`<div class="c"><h3>Cumplimiento hasta hoy</h3><div class="num">${past.length?pct+"%":"–"}</div><div class="bar"><b style="width:${pct}%"></b></div><div class="mu">${hechas} de ${past.length} sesiones planificadas realizadas. Un dato para entender tu ritmo, no una calificación.</div></div>`;
+ if(bs.length)h+=`<div class="c"><h3>Bloques</h3>${bs.map(b=>`<div class="ses"><b>${esc(b.name)}</b> <span class="mu">${shortD(b.start_date)} – ${shortD(b.end_date)}</span></div>`).join("")}</div>`;
+ const wks={};ps.forEach(p=>(wks[wk(p.planned_date)]=wks[wk(p.planned_date)]||[]).push(p));
+ const wc=w=>{const b=bs.find(x=>x.start_date<=w&&w<=x.end_date);return`<div class="c"><h3>Semana del ${shortD(w)}${b?` <span class="pill">${esc(b.name)}</span>`:""}</h3>${wks[w].map(p=>{const[l,k]=st(p);return`<div class="ses"><b>${DN[(new Date(p.planned_date+"T12:00:00").getDay()+6)%7].slice(0,3)} ${shortD(p.planned_date)}</b> <span class="pill">${esc(SPORTS[p.sport]?.n||p.sport)}</span><span class="pill">${p.duration_min} min</span><span class="pill ${k}">${l}</span> <button class="btn o s" data-pd="${p.id}">Quitar</button></div>`}).join("")}</div>`};
+ const keys=Object.keys(wks).sort(),cur=wk(T),old=keys.filter(k=>k<cur);
+ if(old.length)h+=`<details style="margin-bottom:14px"><summary class="mu" style="cursor:pointer;padding:6px 0">Semanas anteriores (${old.length})</summary>${old.map(wc).join("")}</details>`;
+ h+=keys.filter(k=>k>=cur).map(wc).join("")+`<div class="acts"><button class="btn o s" id="pdel">Eliminar plan</button></div><div class="msg" id="pmsg2" role="status"></div>`;
+ $("v-plan").innerHTML=h}
+$("v-plan").onclick=async e=>{const b=e.target.closest("button");if(!b)return;const g=goals.find(x=>x.id===PL);
+ if(b.id==="pbadd")return addBlock();
+ if(b.dataset.pd){const p=planned.find(x=>x.id===b.dataset.pd);if(sessions.some(s=>s.planned_session_id===p.id)&&!confirm("Ya registraste esta sesión. Se conserva en tu historial y solo se quita del plan."))return;
+  const{error}=await sb.from("flexo_planned_sessions").delete().eq("id",p.id);if(error)return msg("pmsg2","No se pudo quitar: "+error.message,"er");
+  planned=planned.filter(x=>x.id!==p.id);sessions.forEach(s=>{if(s.planned_session_id===p.id)s.planned_session_id=null});return renderPlan()}
+ if(b.id==="pdel"){if(!confirm("Se elimina el plan de esta meta. Las sesiones que ya registraste se conservan."))return;
+  const a=await sb.from("flexo_planned_sessions").delete().eq("goal_id",g.id),c=await sb.from("flexo_plan_blocks").delete().eq("goal_id",g.id);
+  if(a.error||c.error)return msg("pmsg2","No se pudo eliminar el plan.","er");await load();return renderPlan()}
+ if(b.id==="pgen"){
+  const q=s=>$("v-plan").querySelector(s),tpl=[...$("v-plan").querySelectorAll("[data-ps]")].map((s,i)=>({sport:s.value,min:parseInt(q(`[data-pm="${i}"]`).value)}));
+  if(!tpl.some(t=>t.sport))return msg("pmsg2","Elige al menos un día de entrenamiento.","er");
+  if(tpl.some(t=>t.sport&&!(t.min>0)))return msg("pmsg2","Indica los minutos de cada día elegido.","er");
+  const bl=[...$("pbl").children].map(r=>({name:r.children[0].value.trim(),w:parseInt(r.children[1].value)})).filter(x=>x.name||x.w);
+  if(bl.some(x=>!x.name||!(x.w>0)))return msg("pmsg2","Cada bloque necesita un nombre y su número de semanas.","er");
+  const end=new Date(g.due_date+"T12:00:00"),rows=[];
+  for(let d=new Date(today()+"T12:00:00");d<=end;d.setDate(d.getDate()+1)){const t=tpl[(d.getDay()+6)%7];if(t.sport)rows.push({goal_id:g.id,planned_date:iso(d),sport:t.sport,duration_min:t.min})}
+  if(!rows.length)return msg("pmsg2","Con esa semana tipo no hay sesiones antes de la fecha de tu meta.","er");
+  if(rows.length>400)return msg("pmsg2","El plan es demasiado largo. Acorta la meta o reduce los días.","er");
+  b.disabled=true;let cursor=new Date(wk(today())+"T12:00:00");
+  const brow=bl.map((x,i)=>{const s=new Date(cursor);cursor.setDate(cursor.getDate()+7*x.w);const f=new Date(cursor);f.setDate(f.getDate()-1);return{goal_id:g.id,name:x.name,start_date:iso(s),end_date:iso(f),position:i}});
+  let bd=[];if(brow.length){const r=await sb.from("flexo_plan_blocks").insert(brow).select();if(r.error){b.disabled=false;return msg("pmsg2","No se pudo crear el plan: "+r.error.message,"er")}bd=r.data}
+  rows.forEach(p=>{p.block_id=bd.find(x=>x.start_date<=p.planned_date&&p.planned_date<=x.end_date)?.id||null});
+  const r=await sb.from("flexo_planned_sessions").insert(rows).select();b.disabled=false;
+  if(r.error)return msg("pmsg2","No se pudo crear el plan: "+r.error.message,"er");
+  blocks.push(...bd);planned.push(...r.data);planned.sort((x,y)=>x.planned_date.localeCompare(y.planned_date));renderPlan()}};
+function pairChart(a,b,lb){const W=300,H=110,T=16,B=22,n=a.length,g=6,bw=(W-g*(n+1))/n,mx=Math.max(1,...a,...b),h=bw/2-1;
+ return`<svg viewBox="0 0 ${W} ${H}" style="width:100%;display:block" role="img" aria-label="Minutos planificados y reales por semana">${a.map((x,i)=>{const xx=g+i*(bw+g),h1=(H-T-B)*x/mx,h2=(H-T-B)*b[i]/mx;
+ return`<rect x="${xx}" y="${H-B-h1}" width="${h}" height="${x?Math.max(h1,2):0}" rx="3" fill="var(--mu)" opacity=".45"/><rect x="${xx+h+2}" y="${H-B-h2}" width="${h}" height="${b[i]?Math.max(h2,2):0}" rx="3" fill="var(--ac)"/>${n<=8||(n-1-i)%2===0?`<text x="${xx+bw/2}" y="${H-6}" text-anchor="middle" font-size="9" fill="var(--mu)" style="${FS}">${lb[i]}</text>`:""}`}).join("")}</svg>`}
+function planCards(ws,lb){
+ const ps=planned.filter(p=>(PF.sport==="all"||p.sport===PF.sport)&&wk(p.planned_date)>=ws[0]&&wk(p.planned_date)<=ws[ws.length-1]);if(!ps.length)return"";
+ const lk={};sessions.forEach(s=>{if(s.planned_session_id)lk[s.planned_session_id]=s});
+ const rows=ws.map(w=>{const x=ps.filter(p=>wk(p.planned_date)===w),d=x.filter(p=>lk[p.id]);return{n:x.length,d:d.length,pm:x.reduce((a,p)=>a+p.duration_min,0),rm:d.reduce((a,p)=>a+lk[p.id].duration_min,0)}});
+ const T=rows.reduce((a,r)=>a+r.n,0),D=rows.reduce((a,r)=>a+r.d,0);
+ return card("Cumplimiento del plan (%)",barChart(rows.map(r=>r.n?Math.round(r.d/r.n*100):0),lb,"cumplimiento"),`${D} de ${T} sesiones planificadas realizadas en el periodo. La semana en curso aún no termina y las semanas sin plan aparecen en 0.`)+card("Minutos: plan y real",pairChart(rows.map(r=>r.pm),rows.map(r=>r.rm),lb),"Gris: planificado. Lima: realizado en las sesiones que enlazaste con el plan.")}
 /* ---------- Hoy, Progreso, Historial ---------- */
 const wk=s=>{const d=new Date(s+"T12:00:00");d.setDate(d.getDate()-((d.getDay()+6)%7));return iso(d)};
 function renderHoy(){
  const act=goals.filter(g=>g.status==="activa"),w=wk(today()),sw=sessions.filter(s=>wk(s.session_date)===w),load=sw.reduce((a,s)=>a+s.load,0),last=sessions[0];
  const days=profile?.days?.length||0;
+ const doneP=new Set(sessions.map(s=>s.planned_session_id).filter(Boolean)),wp=planned.filter(p=>wk(p.planned_date)===w&&act.some(g=>g.id===p.goal_id));
+ const stP=p=>doneP.has(p.id)?["Hecha","ok"]:p.planned_date<today()?["Omitida",""]:["Pendiente",""];
+ const planHtml=wp.length?`<div class="c"><h3>Plan de esta semana</h3><p class="mu" style="margin:0 0 8px">${wp.filter(p=>doneP.has(p.id)).length} de ${wp.length} sesiones hechas</p>${wp.map(p=>{const[l,k]=stP(p);return`<div class="ses"><b>${shortD(p.planned_date)}</b> <span class="pill">${esc(SPORTS[p.sport]?.n||p.sport)}</span><span class="pill">${p.duration_min} min</span><span class="pill ${k}">${l}</span>${l==="Pendiente"?` <button class="btn s" data-pl="${p.id}">Registrar</button>`:""}</div>`}).join("")}</div>`:(act.length&&!planned.length?`<div class="c"><b>Organiza tu semana.</b><p class="mu" style="margin:6px 0 12px">Crea un plan para tu meta y compáralo con lo que registres.</p><button class="btn s" data-go="metas">Ir a Metas</button></div>`:"");
  $("v-hoy").innerHTML=`<h2>Hoy</h2>
  ${act.length?act.map(g=>`<div class="c"><h3>${esc(g.metric)}</h3><div class="num">${Math.round(progress(g)*100)}%</div><div class="bar"><b style="width:${progress(g)*100}%"></b></div><div class="mu">${g.current_value} de ${g.target_value} ${esc(g.unit)} · hasta el ${fmtD(g.due_date)}</div></div>`).join(""):`<div class="c"><b>Define tu primera meta.</b><p class="mu">Con un punto de partida, un objetivo y una fecha, tus sesiones tienen dirección.</p><button class="btn s" data-go="metas">Crear meta</button></div>`}
- <div class="c"><h3>Esta semana</h3><div class="row"><div><div class="num">${sw.length}</div><div class="mu">sesiones${days?` de ${days} días disponibles`:""}</div></div><div><div class="num">${load}</div><div class="mu">de carga (duración × RPE)</div></div></div>
+ ${planHtml}<div class="c"><h3>Esta semana</h3><div class="row"><div><div class="num">${sw.length}</div><div class="mu">sesiones${days?` de ${days} días disponibles`:""}</div></div><div><div class="num">${load}</div><div class="mu">de carga (duración × RPE)</div></div></div>
  ${last?`<p class="mu" style="margin:14px 0 0">Última sesión: ${SPORTS[last.sport]?.n||last.sport}, ${fmtD(last.session_date)}.</p>`:""}</div>
  <div class="acts"><button class="btn" data-go="registrar">Registrar sesión</button><button class="btn o" data-go="perfil">Editar perfil</button></div>
  <p class="mu" style="margin-top:26px">FLEXO registra y analiza tus datos. No prescribe rutinas ni sustituye a entrenadores o profesionales de la salud. Escucha a tu cuerpo.</p>`}
@@ -293,6 +360,7 @@ function renderProg(){
  h+=card("Veces por semana",barChart(by.map(x=>x.n),lb,"sesiones"))+card("Tiempo por semana (min)",barChart(by.map(x=>x.min),lb,"tiempo"))+sportCards(S);
  const rpts=by.map((x,i)=>x.rpe==null?null:{x:lb[i],y:fmtN(x.rpe)}).filter(Boolean);
  h+=card("Esfuerzo (RPE promedio)",lineChart(rpts,"RPE"),"Un RPE alto sostenido junto con más carga semanal indica semanas más exigentes.")+card("Carga semanal (duración × RPE)",barChart(by.map(x=>x.load),lb,"carga"));
+ h+=planCards(ws,lb);
  if(PF.sport==="all"){const g={};S.forEach(s=>{g[s.sport]=g[s.sport]||{n:0,m:0};g[s.sport].n++;g[s.sport].m+=s.duration_min});const mx=Math.max(...Object.values(g).map(x=>x.n));
   h+=`<div class="c"><h3>Por deporte</h3>${Object.entries(g).sort((a,b)=>b[1].n-a[1].n).map(([k,v])=>`<div class="wb" style="grid-template-columns:120px 1fr 80px"><span>${esc(SPORTS[k]?.n||k)}</span><div class="bar"><b style="width:${v.n/mx*100}%"></b></div><span>${v.n} · ${fmtN(v.m/60)} h</span></div>`).join("")}</div>`}
  $("v-progreso").innerHTML=h}
@@ -302,13 +370,13 @@ function detail(s){const it=s.flexo_session_items||[];if(SPORTS[s.sport]?.gym)re
 function renderHist(){
  const f=$("hf")?.value||"";const list=sessions.filter(s=>!f||s.sport===f);
  $("v-historial").innerHTML=`<h2>Historial</h2><div class="row" style="margin:10px 0 14px"><select id="hf" aria-label="Filtrar por deporte"><option value="">Todos los deportes</option>${opts(Object.entries(SPORTS).map(([k,s])=>[k,s.n]),f)}</select><button class="btn o s" id="hcsv">Exportar CSV</button></div>
- <div class="c">${list.length?list.map(s=>`<div class="ses"><b>${fmtD(s.session_date)}</b> <span class="pill">${SPORTS[s.sport]?.n||s.sport}</span><span class="pill">${s.duration_min} min</span><span class="pill">RPE ${s.rpe}</span><span class="pill">carga ${s.load}</span>${s.rest_seconds>0?`<span class="pill">descanso ${fmtT(s.rest_seconds)}</span><span class="pill">activo ${fmtT(Math.max(0,s.duration_min*60-s.rest_seconds))}</span>`:""}
+ <div class="c">${list.length?list.map(s=>`<div class="ses"><b>${fmtD(s.session_date)}</b> <span class="pill">${SPORTS[s.sport]?.n||s.sport}</span><span class="pill">${s.duration_min} min</span><span class="pill">RPE ${s.rpe}</span><span class="pill">carga ${s.load}</span>${s.planned_session_id?`<span class="pill ok">del plan</span>`:""}${s.rest_seconds>0?`<span class="pill">descanso ${fmtT(s.rest_seconds)}</span><span class="pill">activo ${fmtT(Math.max(0,s.duration_min*60-s.rest_seconds))}</span>`:""}
  <div class="mu">${detail(s)}</div>${s.notes?`<div class="mu">${esc(s.notes)}</div>`:""}<div class="acts" style="margin-top:8px"><button class="btn o s" data-e="${s.id}">Editar</button><button class="btn o s er" data-d="${s.id}">Eliminar</button></div></div>`).join(""):`<b>Aún no hay sesiones.</b><p class="mu">Registra la primera para ver tu evolución.</p>`}</div><div class="msg" id="hmsg" role="status"></div>`;
  $("hf").onchange=renderHist;$("hcsv").onclick=csv}
 $("v-historial").onclick=async e=>{const b=e.target.closest("button");if(!b)return;
  if(b.dataset.d){if(!confirm("Al eliminar una sesión se borran también sus series. No se puede deshacer."))return;const{error}=await sb.from("flexo_sessions").delete().eq("id",b.dataset.d);if(error)return msg("hmsg","No se pudo eliminar: "+error.message,"er");await load();renderHist()}
  if(b.dataset.e){const s=sessions.find(x=>x.id===b.dataset.e);editId=s.id;go("registrar");$("rt").textContent="Editar sesión";$("rcancel").classList.remove("hid");
-  $("rd").value=s.session_date;$("rs").value=s.sport;regSport();$("rm").value=s.duration_min;$("rr").value=s.rpe;$("rn").value=s.notes||"";$("rg").value=s.goal_id||"";rpeLoad();
+  $("rd").value=s.session_date;$("rs").value=s.sport;regSport();$("rm").value=s.duration_min;$("rr").value=s.rpe;$("rn").value=s.notes||"";$("rg").value=s.goal_id||"";fillPlanned(s.planned_session_id);rpeLoad();
   const it=s.flexo_session_items||[];if(SPORTS[s.sport].gym){$("its").innerHTML="";it.forEach(i=>{addSet();const r=$("its").lastElementChild;r.children[0].value=i.name;r.children[1].value=i.data.reps;r.children[2].value=i.data.weight??"";r.children[3].value=i.data.unit||"kg";r.children[4].value=i.data.rest??""});if(!it.length)addSet()}
   else Object.entries(it[0]?.data||{}).forEach(([k,v])=>{const i=$("f-"+k);if(i)i.value=v})}};
 function csv(){if(!sessions.length)return;const r=[["fecha","deporte","duración_min","rpe","carga","descanso_s","detalle","notas"],...sessions.map(s=>[s.session_date,s.sport,s.duration_min,s.rpe,s.load,s.rest_seconds||0,detail(s).replace(/&amp;/g,"&"),s.notes||""])];
