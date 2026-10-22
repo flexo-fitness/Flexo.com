@@ -39,7 +39,7 @@ nav svg{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:2;stro
 .it{display:grid;grid-template-columns:2fr 1fr 1fr 1fr 1fr;gap:6px;margin-bottom:6px}.it input,.it select{padding:10px 8px}
 .wb{display:grid;grid-template-columns:70px 1fr 56px;gap:8px;align-items:center;font-size:13px;margin:8px 0}.wb .bar{margin:0}
 .ses{border-top:1px solid var(--ln);padding:12px 0}.ses:first-child{border:0}
-a{color:var(--ac)}.tm{display:flex;gap:16px;align-items:center;flex-wrap:wrap}.tm .num{font-size:24px;font-variant-numeric:tabular-nums}.tm .row{flex:1}.pill{font-size:12px;font-weight:600;border:1px solid var(--ln);border-radius:99px;padding:2px 10px;margin-right:6px}
+a{color:var(--ac)}.tm{display:flex;gap:16px;align-items:center;flex-wrap:wrap}.tm .num{font-size:24px;font-variant-numeric:tabular-nums}.tm .row{flex:1}.sel{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin:12px 0 16px}.kp .num{font-size:28px;font-variant-numeric:tabular-nums}.dl{font-size:12px;color:var(--mu)}.pill{font-size:12px;font-weight:600;border:1px solid var(--ln);border-radius:99px;padding:2px 10px;margin-right:6px}
 @media(max-width:480px){.it{grid-template-columns:1fr 1fr}.it input:first-child{grid-column:1/-1}}
 @media(prefers-reduced-motion:no-preference){.bar b{transition:width .6s cubic-bezier(.22,1,.36,1)}}
 </style></head><body>
@@ -239,14 +239,57 @@ function renderHoy(){
  <div class="acts"><button class="btn" data-go="registrar">Registrar sesión</button><button class="btn o" data-go="perfil">Editar perfil</button></div>
  <p class="mu" style="margin-top:26px">FLEXO registra y analiza tus datos. No prescribe rutinas ni sustituye a entrenadores o profesionales de la salud. Escucha a tu cuerpo.</p>`}
 document.addEventListener("click",e=>{const b=e.target.closest("[data-go]");if(b)go(b.dataset.go)});
+const PF={sport:"all",weeks:8,ex:"",met:"peso"},fmtN=v=>Math.round(v*10)/10,shortD=s=>new Date(s+"T12:00:00").toLocaleDateString("es",{day:"numeric",month:"short"}),FS="font-family:'Instrument Sans',sans-serif";
+const fmtPace=m=>{const t=Math.round(m*60);return`${Math.floor(t/60)}:${String(t%60).padStart(2,"0")} min/km`};
+function lineChart(pts,u){
+ if(pts.length<2)return`<p class="mu" style="margin:0">Registra al menos dos sesiones para ver la tendencia.</p>`;
+ const W=300,H=110,L=36,R=12,T=12,B=22,n=pts.length-1,ys=pts.map(p=>p.y);let lo=Math.min(...ys),hi=Math.max(...ys);if(lo===hi){lo-=1;hi+=1}
+ const X=i=>L+(W-L-R)*i/n,Y=v=>T+(H-T-B)*(1-(v-lo)/(hi-lo));let d=`M${X(0)} ${Y(pts[0].y)}`;
+ for(let i=0;i<n;i++){const m=(X(i)+X(i+1))/2;d+=`C${m} ${Y(pts[i].y)} ${m} ${Y(pts[i+1].y)} ${X(i+1)} ${Y(pts[i+1].y)}`}
+ const t=(x,y,a,s)=>`<text x="${x}" y="${y}" text-anchor="${a}" font-size="10" fill="var(--mu)" style="${FS}">${s}</text>`;
+ return`<svg viewBox="0 0 ${W} ${H}" style="width:100%;display:block" role="img" aria-label="Gráfica de ${esc(u)}">${t(L-6,T+4,"end",fmtN(hi))}${t(L-6,H-B,"end",fmtN(lo))}<line x1="${L}" x2="${W-R}" y1="${H-B}" y2="${H-B}" stroke="var(--ln)"/><path d="${d}" fill="none" stroke="var(--ac)" stroke-width="4" stroke-linecap="round"/><circle cx="${X(n)}" cy="${Y(pts[n].y)}" r="6" fill="var(--ac)"/>${t(L,H-6,"start",pts[0].x)}${t(W-R,H-6,"end",pts[n].x)}</svg>`}
+function barChart(v,lb,u){const W=300,H=110,T=16,B=22,n=v.length,g=6,bw=(W-g*(n+1))/n,mx=Math.max(1,...v);
+ return`<svg viewBox="0 0 ${W} ${H}" style="width:100%;display:block" role="img" aria-label="Gráfica de ${esc(u)} por semana">${v.map((x,i)=>{const h=(H-T-B)*x/mx,xx=g+i*(bw+g),last=i===n-1,showL=n<=8||(n-1-i)%2===0;
+ return`<rect x="${xx}" y="${H-B-h}" width="${bw}" height="${x?Math.max(h,2):0}" rx="4" fill="${last?"var(--ac)":"var(--mu)"}" opacity="${last?1:.45}"/>${x&&(n<=8||last)?`<text x="${xx+bw/2}" y="${H-B-h-4}" text-anchor="middle" font-size="10" fill="var(--tx)" style="${FS}">${fmtN(x)}</text>`:""}${showL?`<text x="${xx+bw/2}" y="${H-6}" text-anchor="middle" font-size="9" fill="var(--mu)" style="${FS}">${lb[i]}</text>`:""}`}).join("")}</svg>`}
+const card=(t,svg,note)=>`<div class="c"><h3>${t}</h3>${svg}${note?`<p class="mu" style="margin:10px 0 0;font-size:14px">${note}</p>`:""}</div>`;
+function sportCards(S){
+ const asc=S.slice().sort((a,b)=>a.session_date.localeCompare(b.session_date)),its=s=>s.flexo_session_items||[];
+ if(PF.sport==="gimnasio"){
+  const cnt={},nm={};asc.forEach(s=>its(s).forEach(i=>{const k=i.name.trim().toLowerCase();cnt[k]=(cnt[k]||0)+1;nm[k]=nm[k]||i.name.trim()}));
+  const ks=Object.keys(cnt).sort((a,b)=>cnt[b]-cnt[a]);if(!ks.length)return card("Ejercicios","<p class=\"mu\" style=\"margin:0\">Aún no hay series registradas en este periodo.</p>");
+  if(!ks.includes(PF.ex))PF.ex=ks[0];
+  const kg=i=>i.data.weight==null?null:i.data.weight*(i.data.unit==="lb"?.4536:1),u=PF.met==="reps"?"repeticiones":"kg";
+  const pts=asc.map(s=>{const x=its(s).filter(i=>i.name.trim().toLowerCase()===PF.ex);if(!x.length)return null;let y;
+   if(PF.met==="peso"){const w=x.map(kg).filter(v=>v!=null);if(!w.length)return null;y=Math.max(...w)}else if(PF.met==="volumen")y=x.reduce((a,i)=>a+(kg(i)||0)*i.data.reps,0);else y=x.reduce((a,i)=>a+i.data.reps,0);
+   return{x:shortD(s.session_date),y:fmtN(y),d:s.session_date}}).filter(Boolean);
+  const best=pts.reduce((m,p)=>!m||p.y>m.y?p:m,null),ML={peso:"Peso máximo",volumen:"Volumen (peso × reps)",reps:"Repeticiones totales"};
+  return`<div class="sel"><div><label for="pfe">Ejercicio</label><select id="pfe">${opts(ks.map(k=>[k,nm[k]]),PF.ex)}</select></div><div><label for="pfm">Métrica</label><select id="pfm">${opts([["peso","Peso máximo"],["volumen","Volumen"],["reps","Repeticiones"]],PF.met)}</select></div></div>`+
+   card(`${esc(nm[PF.ex])}: ${ML[PF.met]}`,lineChart(pts,ML[PF.met]),best?`Mejor marca: ${best.y} ${u} (${fmtD(best.d)}). ${pts.length} sesiones con este ejercicio. Los pesos en lb se convierten a kg.`:"Este ejercicio no tiene pesos registrados.")}
+ if(PF.sport==="running"||PF.sport==="ciclismo"){
+  const r=asc.map(s=>({x:shortD(s.session_date),d:s.session_date,...(its(s)[0]?.data||{})})).filter(q=>q.km>0),p=r.filter(q=>q.min>0).map(q=>({x:q.x,y:Math.round(q.min/q.km*100)/100,d:q.d}));
+  const far=r.reduce((m,q)=>!m||q.km>m.km?q:m,null),fast=p.reduce((m,q)=>!m||q.y<m.y?q:m,null);
+  return card("Distancia por sesión (km)",lineChart(r.map(q=>({x:q.x,y:q.km})),"distancia"),far?`Mayor distancia: ${far.km} km (${fmtD(far.d)}).`:"Aún no hay distancias registradas.")+
+   card("Ritmo (min/km)",lineChart(p,"ritmo"),fast?`Mejor ritmo: ${fmtPace(fast.y)} (${fmtD(fast.d)}). En el ritmo, un número menor es mejor.`:"")}
+ if(PF.sport==="natacion"){const r=asc.map(s=>({x:shortD(s.session_date),y:its(s)[0]?.data?.vueltas})).filter(q=>q.y>0);
+  return card("Vueltas por sesión",lineChart(r,"vueltas"),r.length?`Total en el periodo: ${r.reduce((a,q)=>a+q.y,0)} vueltas.`:"Aún no hay vueltas registradas.")}
+ return""}
 function renderProg(){
- const ws=[];let d=new Date(wk(today())+"T12:00:00");for(let i=0;i<6;i++){ws.unshift(iso(d));d.setDate(d.getDate()-7)}
- const by=ws.map(w=>{const x=sessions.filter(s=>wk(s.session_date)===w);return{w,n:x.length,min:x.reduce((a,s)=>a+s.duration_min,0),load:x.reduce((a,s)=>a+s.load,0)}});
- const mx=Math.max(1,...by.map(x=>x.load));
- $("v-progreso").innerHTML=`<h2>Progreso</h2><p class="mu">Se calcula solo a partir de tus sesiones. Las gráficas por meta llegan en la siguiente fase.</p>
- <div class="c"><h3>Carga semanal (duración × RPE)</h3>${by.map(x=>`<div class="wb"><span>${fmtD(x.w).replace(/ de? \d{4}|\s\d{4}$/,"")}</span><div class="bar"><b style="width:${x.load/mx*100}%"></b></div><span>${x.load}</span></div>`).join("")}
- <p class="mu" style="margin:10px 0 0">${sessions.length?"":"Registra tu primera sesión para ver la tendencia."}</p></div>
- <div class="c"><h3>Resumen de 6 semanas</h3><div class="row"><div><div class="num">${by.reduce((a,x)=>a+x.n,0)}</div><div class="mu">sesiones</div></div><div><div class="num">${Math.round(by.reduce((a,x)=>a+x.min,0)/60*10)/10}</div><div class="mu">horas</div></div></div></div>`}
+ const N=PF.weeks;let d=new Date(wk(today())+"T12:00:00");const ws=[];for(let i=0;i<N;i++){ws.unshift(iso(d));d.setDate(d.getDate()-7)}
+ const ps=new Date(ws[0]+"T12:00:00");ps.setDate(ps.getDate()-7*N);const pv=iso(ps);
+ const base=sessions.filter(s=>PF.sport==="all"||s.sport===PF.sport),S=base.filter(s=>wk(s.session_date)>=ws[0]),P=base.filter(s=>{const w=wk(s.session_date);return w>=pv&&w<ws[0]});
+ const by=ws.map(w=>{const x=S.filter(s=>wk(s.session_date)===w);return{n:x.length,min:x.reduce((a,s)=>a+s.duration_min,0),load:x.reduce((a,s)=>a+s.load,0),rpe:x.length?x.reduce((a,s)=>a+s.rpe,0)/x.length:null}});
+ const lb=ws.map(shortD),sum=(a,k)=>a.reduce((t,s)=>t+s[k],0),dl=(c,p,u)=>p?`${c>=p?"+":"−"}${Math.abs(Math.round(c-p))}${u} vs periodo anterior`:"";
+ const head=`<h2>Progreso</h2><p class="mu">Cuántas veces entrenas, cuánto tiempo y cómo te va en cada deporte.</p><div class="sel"><div><label for="pfs">Deporte</label><select id="pfs"><option value="all">Todos los deportes</option>${opts(mySports().map(k=>[k,SPORTS[k].n]),PF.sport)}</select></div><div><label for="pfw">Periodo</label><select id="pfw">${opts([["4","Últimas 4 semanas"],["8","Últimas 8 semanas"],["12","Últimas 12 semanas"]],String(PF.weeks))}</select></div></div>`;
+ if(!S.length)return void($("v-progreso").innerHTML=head+`<div class="c"><b>Aún no hay sesiones en este periodo.</b><p class="mu" style="margin:6px 0 12px">Registra una para ver tu evolución.</p><button class="btn s" data-go="registrar">Registrar sesión</button></div>`);
+ const mins=sum(S,"duration_min"),pm=sum(P,"duration_min"),rp=S.reduce((a,s)=>a+s.rpe,0)/S.length;
+ let h=head+`<div class="c kp"><div class="row"><div><div class="num">${S.length}</div><div class="mu">sesiones</div><div class="dl">${dl(S.length,P.length,"")}</div></div><div><div class="num">${fmtN(mins/60)}</div><div class="mu">horas</div><div class="dl">${dl(mins,pm," min")}</div></div><div><div class="num">${fmtN(rp)}</div><div class="mu">RPE promedio</div></div></div></div>`;
+ h+=card("Veces por semana",barChart(by.map(x=>x.n),lb,"sesiones"))+card("Tiempo por semana (min)",barChart(by.map(x=>x.min),lb,"tiempo"))+sportCards(S);
+ const rpts=by.map((x,i)=>x.rpe==null?null:{x:lb[i],y:fmtN(x.rpe)}).filter(Boolean);
+ h+=card("Esfuerzo (RPE promedio)",lineChart(rpts,"RPE"),"Un RPE alto sostenido junto con más carga semanal indica semanas más exigentes.")+card("Carga semanal (duración × RPE)",barChart(by.map(x=>x.load),lb,"carga"));
+ if(PF.sport==="all"){const g={};S.forEach(s=>{g[s.sport]=g[s.sport]||{n:0,m:0};g[s.sport].n++;g[s.sport].m+=s.duration_min});const mx=Math.max(...Object.values(g).map(x=>x.n));
+  h+=`<div class="c"><h3>Por deporte</h3>${Object.entries(g).sort((a,b)=>b[1].n-a[1].n).map(([k,v])=>`<div class="wb" style="grid-template-columns:120px 1fr 80px"><span>${esc(SPORTS[k]?.n||k)}</span><div class="bar"><b style="width:${v.n/mx*100}%"></b></div><span>${v.n} · ${fmtN(v.m/60)} h</span></div>`).join("")}</div>`}
+ $("v-progreso").innerHTML=h}
+$("v-progreso").onchange=e=>{const t=e.target;if(t.id==="pfs"){PF.sport=t.value;PF.ex=""}else if(t.id==="pfw")PF.weeks=+t.value;else if(t.id==="pfe")PF.ex=t.value;else if(t.id==="pfm")PF.met=t.value;renderProg()};
 function detail(s){const it=s.flexo_session_items||[];if(SPORTS[s.sport]?.gym)return it.map(i=>`${esc(i.name)} ${i.data.reps}×${i.data.weight??"–"} ${i.data.unit||""}${i.data.rest?` (desc. ${i.data.rest} s)`:""}`).join(" · ");
  const d=it[0]?.data||{};const p=d.km&&d.min?` · ${(d.min/d.km).toFixed(2)} min/km`:"";return Object.entries(d).map(([k,v])=>`${k}: ${v}`).join(" · ")+p}
 function renderHist(){
