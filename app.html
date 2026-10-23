@@ -62,10 +62,17 @@ a{color:var(--ac)}.tm{display:flex;gap:16px;align-items:center;flex-wrap:wrap}.t
 <div class="top"><div class="wm">FLEXO<i></i></div><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn o s hid" id="hlp">Cómo funciona</button><button class="btn o s hid" id="out">Cerrar sesión</button></div></div>
 
 <main id="auth" class="hid">
-<h2>Entrena con intención.</h2><p class="mu">Inicia sesión o crea tu cuenta para guardar tus metas y sesiones.</p><p><a data-landing href="#">¿Qué es FLEXO y cómo funciona?</a></p>
-<div class="c"><label for="em">Correo</label><input id="em" type="email" autocomplete="email">
-<label for="pw">Contraseña</label><input id="pw" type="password" autocomplete="current-password" minlength="6">
-<div class="acts"><button class="btn" id="login">Iniciar sesión</button><button class="btn o" id="signup">Crear cuenta</button></div><div class="msg" id="am" role="status"></div></div>
+<h2>Entrena con intención.</h2><p class="mu">Crea tu cuenta o inicia sesión. Tus datos se guardan en tu cuenta y los ves desde cualquier dispositivo.</p><p><a data-landing href="#">¿Qué es FLEXO y cómo funciona?</a></p>
+<div class="c" id="aform">
+<div class="chips" role="radiogroup" aria-label="Tipo de acceso"><label><input type="radio" name="am-mode" value="login" checked>Iniciar sesión</label><label><input type="radio" name="am-mode" value="signup">Crear cuenta</label></div>
+<div id="anw" class="hid"><label for="an">Nombre (opcional)</label><input id="an" type="text" autocomplete="given-name" maxlength="40"></div>
+<label for="em">Correo</label><input id="em" type="email" autocomplete="email" inputmode="email" autocapitalize="none">
+<label for="pw">Contraseña</label><input id="pw" type="password" autocomplete="current-password">
+<label class="gpsr" style="font-weight:400"><input type="checkbox" id="pws"> Mostrar contraseña</label><div class="mu" id="pwh" style="font-size:13px"></div>
+<div class="acts"><button class="btn" id="aok" type="button">Iniciar sesión</button></div><div class="msg" id="am" role="status"></div></div>
+<div class="c hid" id="averify"><h3>Confirma tu correo</h3><p class="mu" id="avt" style="margin-top:0"></p>
+<label for="ac">Código de confirmación (si tu correo trae uno)</label><input id="ac" inputmode="numeric" autocomplete="one-time-code" maxlength="10" placeholder="123456">
+<div class="acts"><button class="btn" id="avok" type="button">Confirmar código</button><button class="btn o" id="avre" type="button">Reenviar correo</button><button class="btn o s" id="avback" type="button">Cambiar correo</button></div><div class="msg" id="avm" role="status"></div></div>
 </main>
 
 <main id="app" class="hid">
@@ -148,11 +155,56 @@ const sportOpts=sel=>opts(mySports().map(k=>[k,SPORTS[k].n]),sel);
 
 /* ---------- Acceso ---------- */
 async function boot(){const{data}=await sb.auth.getSession();data.session?enter(data.session.user):show("auth")}
-function show(w){$("auth").classList.toggle("hid",w!=="auth");$("app").classList.toggle("hid",w!=="app");$("out").classList.toggle("hid",w!=="app");$("hlp").classList.toggle("hid",w!=="app")}
-$("login").onclick=async()=>{const{data,error}=await sb.auth.signInWithPassword({email:$("em").value.trim(),password:$("pw").value});error?msg("am","No se pudo iniciar sesión: revisa el correo y la contraseña.","er"):enter(data.user)};
-$("signup").onclick=async()=>{const{data,error}=await sb.auth.signUp({email:$("em").value.trim(),password:$("pw").value});if(error)return msg("am",error.message,"er");data.session?enter(data.user):msg("am","Cuenta creada. Confirma tu correo y luego inicia sesión.","ok")};
+sb.auth.onAuthStateChange((ev,s)=>{if(ev==="SIGNED_IN"&&s?.user&&(!U||U.id!==s.user.id))setTimeout(()=>enter(s.user),0)});
+function show(w){if(w==="auth"){$("averify").classList.add("hid");$("aform").classList.remove("hid")}$("auth").classList.toggle("hid",w!=="auth");$("app").classList.toggle("hid",w!=="app");$("out").classList.toggle("hid",w!=="app");$("hlp").classList.toggle("hid",w!=="app")}
+const AUTH={mode:"login",email:"",tm:null},redirectUrl=()=>location.origin+location.pathname,EMAIL_RE=/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+function authMsg(e,ctx){const c=String(e?.code||"").toLowerCase(),m=String(e?.message||"").toLowerCase(),st=e?.status;
+ if(!navigator.onLine||m.includes("failed to fetch")||m.includes("networkerror")||m.includes("network request"))return"Sin conexión. Revisa tu internet e inténtalo de nuevo.";
+ if(ctx==="otp"&&(c==="otp_expired"||c==="otp_invalid"||m.includes("expired")||m.includes("invalid")))return"El código es incorrecto o ya venció. Pide uno nuevo con «Reenviar correo».";
+ if(c==="user_already_exists"||m.includes("already registered")||m.includes("already been registered"))return"Este correo ya tiene una cuenta. Inicia sesión.";
+ if(c==="over_email_send_rate_limit"||m.includes("email rate limit"))return"Se enviaron demasiados correos en poco tiempo. Espera unos minutos e inténtalo de nuevo.";
+ if(st===429||c==="over_request_rate_limit")return"Demasiados intentos seguidos. Espera un momento e inténtalo de nuevo.";
+ if(c==="email_address_not_authorized"||m.includes("not authorized"))return"No pudimos enviar el correo de confirmación. Inténtalo más tarde. (código: email_address_not_authorized)";
+ if(c==="signup_disabled"||m.includes("signups not allowed")||m.includes("signup is disabled"))return"El registro de cuentas nuevas está desactivado por ahora.";
+ if(c==="weak_password"||m.includes("password should"))return"La contraseña es muy débil. Usa al menos 8 caracteres con letras y números.";
+ if(c==="email_address_invalid"||m.includes("invalid email")||m.includes("unable to validate email"))return"Revisa el correo: no parece válido.";
+ if(c==="invalid_credentials"||m.includes("invalid login credentials"))return"Correo o contraseña incorrectos.";
+ return`No se pudo completar la acción. (${e?.message||c||st||"error desconocido"})`}
+function setMode(m){AUTH.mode=m;document.querySelector(`input[name="am-mode"][value="${m}"]`).checked=true;const s=m==="signup";
+ $("anw").classList.toggle("hid",!s);$("aok").textContent=s?"Crear cuenta":"Iniciar sesión";$("pw").autocomplete=s?"new-password":"current-password";$("pwh").textContent=s?"Mínimo 8 caracteres.":"";msg("am","","")}
+document.querySelectorAll('input[name="am-mode"]').forEach(r=>r.onchange=()=>setMode(r.value));
+$("pws").onchange=()=>{$("pw").type=$("pws").checked?"text":"password"};
+function startCool(sec){clearInterval(AUTH.tm);const b=$("avre");if(sec<=0){b.disabled=false;b.textContent="Reenviar correo";return}let n=sec;b.disabled=true;b.textContent=`Reenviar correo (${n} s)`;
+ AUTH.tm=setInterval(()=>{n--;if(n<=0){clearInterval(AUTH.tm);b.disabled=false;b.textContent="Reenviar correo"}else b.textContent=`Reenviar correo (${n} s)`},1000)}
+function verifyPanel(email,intro,cool){AUTH.email=email;$("aform").classList.add("hid");$("averify").classList.remove("hid");
+ $("avt").textContent=`${intro} Revisa ${email}, incluida la carpeta de spam. Si el correo trae un enlace, ábrelo en este mismo dispositivo. Si trae un código, escríbelo abajo.`;$("ac").value="";msg("avm","","");startCool(cool)}
+async function authGo(){
+ const email=$("em").value.trim().toLowerCase(),pw=$("pw").value,btn=$("aok"),signup=AUTH.mode==="signup";
+ if(!EMAIL_RE.test(email))return msg("am","Escribe un correo válido.","er");
+ if(!pw)return msg("am","Escribe tu contraseña.","er");
+ if(signup&&pw.length<8)return msg("am","La contraseña debe tener al menos 8 caracteres.","er");
+ btn.disabled=true;msg("am",signup?"Creando tu cuenta…":"Entrando…","");
+ try{
+  if(!signup){const{data,error}=await sb.auth.signInWithPassword({email,password:pw});
+   if(error){if(String(error.code||"")==="email_not_confirmed"||/not confirmed/i.test(error.message||""))return verifyPanel(email,"Tu cuenta existe, pero falta confirmar el correo.",0);return msg("am",authMsg(error),"er")}
+   return enter(data.user)}
+  const name=$("an").value.trim(),{data,error}=await sb.auth.signUp({email,password:pw,options:{data:name?{display_name:name}:{},emailRedirectTo:redirectUrl()}});
+  if(error)return msg("am",authMsg(error),"er");
+  if(data.session)return enter(data.user);
+  if(data.user&&Array.isArray(data.user.identities)&&data.user.identities.length===0){setMode("login");$("em").value=email;return msg("am","Este correo ya tiene una cuenta. Inicia sesión con tu contraseña.","er")}
+  verifyPanel(email,"Creamos tu cuenta y te enviamos un correo de confirmación.",60)
+ }catch(e){msg("am",authMsg(e),"er")}finally{btn.disabled=false}}
+$("aok").onclick=authGo;
+$("aform").addEventListener("keydown",e=>{if(e.key==="Enter"&&e.target.tagName==="INPUT"&&!["radio","checkbox"].includes(e.target.type)){e.preventDefault();authGo()}});
+$("avok").onclick=async()=>{const t=$("ac").value.replace(/\s/g,"");if(!/^\d{6,10}$/.test(t))return msg("avm","Escribe el código numérico que llegó a tu correo.","er");
+ $("avok").disabled=true;try{const{data,error}=await sb.auth.verifyOtp({email:AUTH.email,token:t,type:"signup"});if(error)return msg("avm",authMsg(error,"otp"),"er");
+  if(data.session){$("averify").classList.add("hid");return enter(data.user)}msg("avm","Correo confirmado. Ahora inicia sesión con tu correo y contraseña.","ok");$("averify").classList.add("hid");$("aform").classList.remove("hid");setMode("login");$("em").value=AUTH.email}
+ catch(e){msg("avm",authMsg(e,"otp"),"er")}finally{$("avok").disabled=false}};
+$("ac").addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();$("avok").click()}});
+$("avre").onclick=async()=>{try{const{error}=await sb.auth.resend({type:"signup",email:AUTH.email,options:{emailRedirectTo:redirectUrl()}});if(error)return msg("avm",authMsg(error),"er");msg("avm","Te enviamos otro correo. Revisa tu bandeja y la carpeta de spam.","ok");startCool(60)}catch(e){msg("avm",authMsg(e),"er")}};
+$("avback").onclick=()=>{clearInterval(AUTH.tm);$("averify").classList.add("hid");$("aform").classList.remove("hid");setMode("signup")};
 $("out").onclick=async()=>{if(dirty()&&!confirm("Tienes una sesión sin guardar. Se conserva en este dispositivo si vuelves a entrar con la misma cuenta. ¿Cerrar sesión?"))return;gpsStop();await sb.auth.signOut();U=null;show("auth")};
-async function enter(u){U=u;tLoad();show("app");await load();go(profile?"hoy":"perfil")}
+async function enter(u){if(U&&U.id===u.id)return;U=u;$("pw").value="";tLoad();show("app");await load();go(profile?"hoy":"perfil")}
 async function load(){
  const[p,g,s,bl,pl,dy,ts]=await Promise.all([sb.from("flexo_profiles").select("*").eq("user_id",U.id).maybeSingle(),sb.from("flexo_goals").select("*").order("due_date"),sb.from("flexo_sessions").select("*,flexo_session_items(*)").order("session_date",{ascending:false}),sb.from("flexo_plan_blocks").select("*").order("start_date"),sb.from("flexo_planned_sessions").select("*").order("planned_date"),sb.from("flexo_daily_status").select("*").order("status_date",{ascending:false}).limit(400),sb.from("flexo_tests").select("*").order("test_date")]);
  profile=p.data;goals=g.data||[];sessions=s.data||[];blocks=bl.data||[];planned=pl.data||[];daily=dy.data||[];tests=ts.data||[];applyPrefs();
@@ -178,7 +230,7 @@ $("psave").onclick=async()=>{
  const sports=[...$("psp").querySelectorAll("input:checked")].map(i=>({sport:i.value,level:$("psp").querySelector(`[data-l="${i.value}"]`).value}));
  const days=[...$("pd").querySelectorAll("input:checked")].map(i=>+i.value);
  if(!sports.length||!days.length)return msg("pmsg","Elige al menos un deporte y un día disponible.","er");
- const row={user_id:U.id,sports,days,equipment:$("pe").value.trim()||null,limitations:$("pl").value.trim()||null,updated_at:new Date().toISOString()};
+ const dn=U.user_metadata?.display_name||profile?.display_name,row={user_id:U.id,...(dn?{display_name:dn}:{}),sports,days,equipment:$("pe").value.trim()||null,limitations:$("pl").value.trim()||null,updated_at:new Date().toISOString()};
  const{error}=await sb.from("flexo_profiles").upsert(row);if(error)return msg("pmsg","No se pudo guardar: "+error.message,"er");
  profile={...profile,...row};msg("pmsg","Perfil guardado.","ok");go("hoy")};
 
