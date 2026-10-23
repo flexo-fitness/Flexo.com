@@ -69,6 +69,7 @@ a{color:var(--ac)}.tm{display:flex;gap:16px;align-items:center;flex-wrap:wrap}.t
 </main>
 
 <main id="app" class="hid">
+<div id="load-error" class="c hid" role="alert" aria-live="assertive"><b>No se pudieron cargar tus datos.</b><p id="load-error-text" class="mu">Comprueba tu conexión e inténtalo de nuevo.</p><button class="btn s" id="retry-load" type="button">Reintentar carga</button></div>
 <section id="v-hoy"></section>
 
 <section id="v-metas" class="hid">
@@ -152,9 +153,15 @@ function show(w){$("auth").classList.toggle("hid",w!=="auth");$("app").classList
 $("login").onclick=async()=>{const{data,error}=await sb.auth.signInWithPassword({email:$("em").value.trim(),password:$("pw").value});error?msg("am","No se pudo iniciar sesión: revisa el correo y la contraseña.","er"):enter(data.user)};
 $("signup").onclick=async()=>{const{data,error}=await sb.auth.signUp({email:$("em").value.trim(),password:$("pw").value});if(error)return msg("am",error.message,"er");data.session?enter(data.user):msg("am","Cuenta creada. Confirma tu correo y luego inicia sesión.","ok")};
 $("out").onclick=async()=>{if(dirty()&&!confirm("Tienes una sesión sin guardar. Se conserva en este dispositivo si vuelves a entrar con la misma cuenta. ¿Cerrar sesión?"))return;gpsStop();await sb.auth.signOut();U=null;show("auth")};
-async function enter(u){U=u;tLoad();show("app");await load();go(profile?"hoy":"perfil")}
+function showLoadError(e){const box=$("load-error");if(!box)return;box.classList.remove("hid");$("load-error-text").textContent="No se pudo completar la carga de tus datos. Revisa la conexión o los permisos e inténtalo de nuevo. Tus registros no se han borrado por este error.";if(e)console.error("FLEXO: error al cargar datos",e)}
+async function enter(u){U=u;tLoad();show("app");try{await load();$("load-error").classList.add("hid");go(profile?"hoy":"perfil")}catch(e){showLoadError(e)}}
+$("retry-load").onclick=async()=>{const b=$("retry-load");b.disabled=true;try{await load();$("load-error").classList.add("hid");go(profile?"hoy":"perfil")}catch(e){showLoadError(e)}finally{b.disabled=false}};
 async function load(){
- const[p,g,s,bl,pl,dy,ts]=await Promise.all([sb.from("flexo_profiles").select("*").eq("user_id",U.id).maybeSingle(),sb.from("flexo_goals").select("*").order("due_date"),sb.from("flexo_sessions").select("*,flexo_session_items(*)").order("session_date",{ascending:false}),sb.from("flexo_plan_blocks").select("*").order("start_date"),sb.from("flexo_planned_sessions").select("*").order("planned_date"),sb.from("flexo_daily_status").select("*").order("status_date",{ascending:false}).limit(400),sb.from("flexo_tests").select("*").order("test_date")]);
+ const labels=["perfil","metas","sesiones","bloques del plan","sesiones planeadas","estado diario","pruebas"];
+ const results=await Promise.all([sb.from("flexo_profiles").select("*").eq("user_id",U.id).maybeSingle(),sb.from("flexo_goals").select("*").order("due_date"),sb.from("flexo_sessions").select("*,flexo_session_items(*)").order("session_date",{ascending:false}),sb.from("flexo_plan_blocks").select("*").order("start_date"),sb.from("flexo_planned_sessions").select("*").order("planned_date"),sb.from("flexo_daily_status").select("*").order("status_date",{ascending:false}).limit(400),sb.from("flexo_tests").select("*").order("test_date")]);
+ const failed=results.map((r,i)=>r.error?labels[i]+": "+r.error.message:null).filter(Boolean);
+ if(failed.length)throw new Error(failed.join("; "));
+ const[p,g,s,bl,pl,dy,ts]=results;
  profile=p.data;goals=g.data||[];sessions=s.data||[];blocks=bl.data||[];planned=pl.data||[];daily=dy.data||[];tests=ts.data||[];applyPrefs();
 }
 
@@ -229,18 +236,47 @@ const rpeLoad=()=>{$("rrv").textContent=$("rr").value;const m=num($("rm").value)
 $("rr").oninput=$("rm").oninput=rpeLoad;$("rs").onchange=()=>{regSport();fillPlanned();tRender()};$("rd").onchange=()=>fillPlanned();$("rp").onchange=()=>{const p=planned.find(x=>x.id===$("rp").value);if(p){if(!$("rm").value){$("rm").value=p.duration_min;rpeLoad()}$("rg").value=p.goal_id}};
 $("rsave").onclick=async()=>{
  const sp=$("rs").value,s=SPORTS[sp],dur=parseInt($("rm").value);
+ if(!s)return msg("rmsg","Selecciona un deporte válido.","er");
  if(!$("rd").value||!dur||dur<1)return msg("rmsg","Indica la fecha y una duración mayor a 0.","er");
  const items=[];
- if(s.gym)$("its").querySelectorAll(".it").forEach((r,i)=>{const[n,re,w,u,rs]=[...r.children].map(x=>x.value);if(n.trim()&&re)items.push({name:n.trim(),data:{reps:+re,weight:w===""?null:+w,unit:u,rest:rs===""?null:+rs}})});
+ if(s.gym)$("its").querySelectorAll(".it").forEach(r=>{const[n,re,w,u,rs]=[...r.children].map(x=>x.value);if(n.trim()&&re)items.push({name:n.trim(),data:{reps:+re,weight:w===""?null:+w,unit:u,rest:rs===""?null:+rs}})});
  else if(s.f.length){const data={};$("rf").querySelectorAll("[data-k]").forEach(i=>{if(i.value!=="")data[i.dataset.k]=+i.value});if(Object.keys(data).length)items.push({name:s.n,data})}
  if(s.gym&&!items.length)return msg("rmsg","Añade al menos una serie con ejercicio y repeticiones.","er");
  const row={session_date:$("rd").value,sport:sp,duration_min:dur,rpe:+$("rr").value,notes:$("rn").value.trim()||null,goal_id:$("rg").value||null,planned_session_id:$("rp").value||null,...(T?.route&&!editId?{route:T.route}:{}),rest_seconds:s.gym?items.reduce((a,i)=>a+(i.data.rest||0),0):0};
- $("rsave").disabled=true;let sid=editId,error;
- if(editId){({error}=await sb.from("flexo_sessions").update(row).eq("id",editId));if(!error)await sb.from("flexo_session_items").delete().eq("session_id",editId)}
- else{const r=await sb.from("flexo_sessions").insert(row).select().single();error=r.error;sid=r.data?.id}
- if(!error&&items.length)({error}=await sb.from("flexo_session_items").insert(items.map(i=>({...i,session_id:sid}))));
- $("rsave").disabled=false;if(error)return msg("rmsg","No se pudo guardar. Tu sesión sigue en este dispositivo: inténtalo de nuevo cuando tengas conexión. ("+error.message+")","er");
- const was=editId;editId=null;draftClear();if(!was){gpsStop();gpsClear();T=null;tSave();$("tsum").textContent=""}await load();msg("rmsg","");if(!was&&sid){SH.id=sid;SH.fresh=true;go("compartir")}else go("historial")};
+ const button=$("rsave");button.disabled=true;let sid=editId,error=null,rollbackFailed=false;
+ try{
+  if(editId){
+   const previous=sessions.find(x=>x.id===editId);
+   const updated=await sb.from("flexo_sessions").update(row).eq("id",editId);error=updated.error;
+   if(!error){
+    const removed=await sb.from("flexo_session_items").delete().eq("session_id",editId);error=removed.error;
+    if(error&&previous){
+     const restoreRow={session_date:previous.session_date,sport:previous.sport,duration_min:previous.duration_min,rpe:previous.rpe,notes:previous.notes??null,goal_id:previous.goal_id??null,planned_session_id:previous.planned_session_id??null,rest_seconds:previous.rest_seconds??0,...(previous.route?{route:previous.route}:{})};
+     const restored=await sb.from("flexo_sessions").update(restoreRow).eq("id",editId);rollbackFailed=!!restored.error;
+    }
+    if(!error&&items.length){const inserted=await sb.from("flexo_session_items").insert(items.map(i=>({...i,session_id:editId})));error=inserted.error;
+     if(error&&previous){
+      const restoreRow={session_date:previous.session_date,sport:previous.sport,duration_min:previous.duration_min,rpe:previous.rpe,notes:previous.notes??null,goal_id:previous.goal_id??null,planned_session_id:previous.planned_session_id??null,rest_seconds:previous.rest_seconds??0,...(previous.route?{route:previous.route}:{})};
+      const restoredSession=await sb.from("flexo_sessions").update(restoreRow).eq("id",editId);
+      const cleared=await sb.from("flexo_session_items").delete().eq("session_id",editId);
+      const oldItems=(previous.flexo_session_items||[]).map(i=>({session_id:editId,name:i.name,data:i.data}));
+      const restoredItems=oldItems.length?await sb.from("flexo_session_items").insert(oldItems):{error:null};
+      rollbackFailed=!!(restoredSession.error||cleared.error||restoredItems.error);
+     }
+    }
+   }
+  }else{
+   const inserted=await sb.from("flexo_sessions").insert(row).select().single();error=inserted.error;sid=inserted.data?.id;
+   if(!error&&items.length){const detail=await sb.from("flexo_session_items").insert(items.map(i=>({...i,session_id:sid})));error=detail.error;
+    if(error){const removed=await sb.from("flexo_sessions").delete().eq("id",sid);rollbackFailed=!!removed.error}
+   }
+  }
+ }catch(e){error=e}
+ finally{button.disabled=false}
+ if(error){const tail=rollbackFailed?" No se pudo restaurar automáticamente el estado anterior; revisa el historial antes de reintentar.":" La sesión permanece en este dispositivo para que puedas reintentar.";return msg("rmsg","No se pudo guardar la sesión. "+tail+" ("+(error.message||"error de conexión")+")","er")}
+ const was=editId;editId=null;draftClear();if(!was){gpsStop();gpsClear();T=null;tSave();$("tsum").textContent=""}
+ try{await load()}catch(e){showLoadError(e);return}
+ $("load-error").classList.add("hid");msg("rmsg","");if(!was&&sid){SH.id=sid;SH.fresh=true;go("compartir")}else go("historial")};
 /* ---------- GPS y ruta ---------- */
 const GPS={watch:null,pts:[],dist:0,wl:null,vis:null,n:0};
 const hav=(a,b)=>{const R=6371000,r=Math.PI/180,dl=(b[0]-a[0])*r,dg=(b[1]-a[1])*r,q=Math.sin(dl/2)**2+Math.cos(a[0]*r)*Math.cos(b[0]*r)*Math.sin(dg/2)**2;return 2*R*Math.asin(Math.sqrt(q))};
