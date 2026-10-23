@@ -275,7 +275,7 @@ $("rsave").onclick=async()=>{
  finally{button.disabled=false}
  if(error){const tail=rollbackFailed?" No se pudo restaurar automáticamente el estado anterior; revisa el historial antes de reintentar.":" La sesión permanece en este dispositivo para que puedas reintentar.";return msg("rmsg","No se pudo guardar la sesión. "+tail+" ("+(error.message||"error de conexión")+")","er")}
  const was=editId;editId=null;draftClear();if(!was){gpsStop();gpsClear();T=null;tSave();$("tsum").textContent=""}
- try{await load()}catch(e){showLoadError(e);return}
+ try{await load()}catch(e){showLoadError(e);go("historial");msg("load-error-text","La sesión sí se guardó, pero no se pudo actualizar la vista. Pulsa “Reintentar carga” para sincronizar la pantalla.");return}
  $("load-error").classList.add("hid");msg("rmsg","");if(!was&&sid){SH.id=sid;SH.fresh=true;go("compartir")}else go("historial")};
 /* ---------- GPS y ruta ---------- */
 const GPS={watch:null,pts:[],dist:0,wl:null,vis:null,n:0};
