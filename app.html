@@ -295,12 +295,22 @@ $("rsave").onclick=async()=>{
  else if(s.f.length){const data={};$("rf").querySelectorAll("[data-k]").forEach(i=>{if(i.value!=="")data[i.dataset.k]=+i.value});if(Object.keys(data).length)items.push({name:s.n,data})}
  if(s.gym&&!items.length)return msg("rmsg","Añade al menos una serie con ejercicio y repeticiones.","er");
  const row={session_date:$("rd").value,sport:sp,duration_min:dur,rpe:+$("rr").value,notes:$("rn").value.trim()||null,goal_id:$("rg").value||null,planned_session_id:$("rp").value||null,...(T?.route&&!editId?{route:T.route}:{}),rest_seconds:s.gym?items.reduce((a,i)=>a+(i.data.rest||0),0):0};
- $("rsave").disabled=true;let sid=editId,error;
- if(editId){({error}=await sb.from("flexo_sessions").update(row).eq("id",editId));if(!error)await sb.from("flexo_session_items").delete().eq("session_id",editId)}
- else{const r=await sb.from("flexo_sessions").insert(row).select().single();error=r.error;sid=r.data?.id}
- if(!error&&items.length)({error}=await sb.from("flexo_session_items").insert(items.map(i=>({...i,session_id:sid}))));
- $("rsave").disabled=false;if(error)return msg("rmsg","No se pudo guardar. Tu sesión sigue en este dispositivo: inténtalo de nuevo cuando tengas conexión. ("+error.message+")","er");
- const was=editId;editId=null;draftClear();if(!was){gpsStop();gpsClear();T=null;tSave();$("tsum").textContent=""}await safeLoad();msg("rmsg","");if(!was&&sid){SH.id=sid;SH.fresh=true;go("compartir")}else go("historial")};
+ const button=$("rsave");button.disabled=true;let sid=editId,error=null,orphan=false;
+ try{
+  if(editId){const r=await sb.rpc("flexo_update_session",{p_session_id:editId,p_session:row,p_items:items});error=r.error}
+  else{
+   const r=await sb.from("flexo_sessions").insert(row).select().single();error=r.error;sid=r.data?.id;
+   if(!error&&items.length){const d=await sb.from("flexo_session_items").insert(items.map(i=>({...i,session_id:sid})));error=d.error;
+    if(error){const x=await sb.from("flexo_sessions").delete().eq("id",sid);orphan=!!x.error}
+   }
+  }
+ }catch(e){error=e}
+ finally{button.disabled=false}
+ if(error)return msg("rmsg","No se pudo guardar. "+(orphan?"Revisa el historial antes de reintentar: puede haber quedado una sesión sin ejercicios. ":"Tu sesión sigue en este dispositivo: inténtalo de nuevo. ")+"("+(error.message||"error de conexión")+")","er");
+ const was=editId;editId=null;draftClear();if(!was){gpsStop();gpsClear();T=null;tSave();$("tsum").textContent=""}
+ const ok=await safeLoad();msg("rmsg","");
+ if(!ok){$("load-error-text").textContent="La sesión sí se guardó, pero no se pudo actualizar la pantalla. Pulsa “Reintentar carga” para sincronizar.";go("historial");return}
+ if(!was&&sid){SH.id=sid;SH.fresh=true;go("compartir")}else go("historial")};
 /* ---------- GPS y ruta ---------- */
 const GPS={watch:null,pts:[],dist:0,wl:null,vis:null,n:0};
 const hav=(a,b)=>{const R=6371000,r=Math.PI/180,dl=(b[0]-a[0])*r,dg=(b[1]-a[1])*r,q=Math.sin(dl/2)**2+Math.cos(a[0]*r)*Math.cos(b[0]*r)*Math.sin(dg/2)**2;return 2*R*Math.asin(Math.sqrt(q))};
