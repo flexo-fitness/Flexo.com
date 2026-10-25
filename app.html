@@ -731,4 +731,6 @@ $("v-historial").onclick=async e=>{const b=e.target.closest("button");if(!b)retu
 function csv(){if(!sessions.length)return;const r=[["fecha","deporte","duración_min","rpe","carga","descanso_s","detalle","notas"],...sessions.map(s=>[s.session_date,s.sport,s.duration_min,s.rpe,s.load,s.rest_seconds||0,detail(s).replace(/&amp;/g,"&"),s.notes||""])];
  const t=r.map(x=>x.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(",")).join("\r\n"),a=document.createElement("a");a.href=URL.createObjectURL(new Blob(["\ufeff"+t],{type:"text/csv"}));a.download="flexo_historial.csv";a.click()}
 boot();
+
+if("serviceWorker" in navigator){window.addEventListener("load",()=>{navigator.serviceWorker.register("service-worker.js").catch(e=>console.warn("FLEXO: no se pudo registrar el service worker",e))})}
 </script></body></html>
