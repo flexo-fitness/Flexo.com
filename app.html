@@ -76,6 +76,7 @@ a{color:var(--ac)}.tm{display:flex;gap:16px;align-items:center;flex-wrap:wrap}.t
 </main>
 
 <main id="app" class="hid">
+<div id="load-error" class="c hid" role="alert" aria-live="assertive"><b>No se pudieron cargar tus datos.</b><p id="load-error-text" class="mu">Comprueba tu conexión e inténtalo de nuevo.</p><button class="btn s" id="retry-load" type="button">Reintentar carga</button></div>
 <section id="v-hoy"></section>
 
 <section id="v-metas" class="hid">
@@ -204,11 +205,18 @@ $("ac").addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();$(
 $("avre").onclick=async()=>{try{const{error}=await sb.auth.resend({type:"signup",email:AUTH.email,options:{emailRedirectTo:redirectUrl()}});if(error)return msg("avm",authMsg(error),"er");msg("avm","Te enviamos otro correo. Revisa tu bandeja y la carpeta de spam.","ok");startCool(60)}catch(e){msg("avm",authMsg(e),"er")}};
 $("avback").onclick=()=>{clearInterval(AUTH.tm);$("averify").classList.add("hid");$("aform").classList.remove("hid");setMode("signup")};
 $("out").onclick=async()=>{if(dirty()&&!confirm("Tienes una sesión sin guardar. Se conserva en este dispositivo si vuelves a entrar con la misma cuenta. ¿Cerrar sesión?"))return;gpsStop();await sb.auth.signOut();U=null;show("auth")};
-async function enter(u){if(U&&U.id===u.id)return;U=u;$("pw").value="";tLoad();show("app");await load();go(profile?"hoy":"perfil")}
+async function enter(u){if(U&&U.id===u.id)return;U=u;$("pw").value="";tLoad();show("app");if(await safeLoad())go(profile?"hoy":"perfil")}
+const LOAD_LABELS=["perfil","metas","sesiones","bloques del plan","sesiones planeadas","estado diario","pruebas"];
 async function load(){
- const[p,g,s,bl,pl,dy,ts]=await Promise.all([sb.from("flexo_profiles").select("*").eq("user_id",U.id).maybeSingle(),sb.from("flexo_goals").select("*").order("due_date"),sb.from("flexo_sessions").select("*,flexo_session_items(*)").order("session_date",{ascending:false}),sb.from("flexo_plan_blocks").select("*").order("start_date"),sb.from("flexo_planned_sessions").select("*").order("planned_date"),sb.from("flexo_daily_status").select("*").order("status_date",{ascending:false}).limit(400),sb.from("flexo_tests").select("*").order("test_date")]);
+ const results=await Promise.all([sb.from("flexo_profiles").select("*").eq("user_id",U.id).maybeSingle(),sb.from("flexo_goals").select("*").order("due_date"),sb.from("flexo_sessions").select("*,flexo_session_items(*)").order("session_date",{ascending:false}),sb.from("flexo_plan_blocks").select("*").order("start_date"),sb.from("flexo_planned_sessions").select("*").order("planned_date"),sb.from("flexo_daily_status").select("*").order("status_date",{ascending:false}).limit(400),sb.from("flexo_tests").select("*").order("test_date")]);
+ const failed=results.map((r,i)=>r.error?{tabla:LOAD_LABELS[i],code:r.error.code||"",message:r.error.message||""}:null).filter(Boolean);
+ if(failed.length){const e=new Error(failed.map(f=>f.tabla+": "+f.message).join("; "));e.failed=failed;throw e}
+ const[p,g,s,bl,pl,dy,ts]=results;
  profile=p.data;goals=g.data||[];sessions=s.data||[];blocks=bl.data||[];planned=pl.data||[];daily=dy.data||[];tests=ts.data||[];applyPrefs();
 }
+function showLoadError(e){const f=(e&&e.failed)||[];const perm=f.some(x=>/jwt|permission|row-level security|42501|PGRST30[12]/i.test(x.code+" "+x.message));$("load-error-text").textContent=(perm?"Tu sesión venció o no tienes permiso para ver estos datos. Cierra sesión e inicia de nuevo.":"No se pudo completar la carga. Revisa tu conexión e inténtalo de nuevo.")+" Tus registros no se han borrado por este error.";$("load-error").classList.remove("hid");console.error("FLEXO: error al cargar datos",e)}
+async function safeLoad(){try{await load();$("load-error").classList.add("hid");return true}catch(e){showLoadError(e);return false}}
+$("retry-load").onclick=async()=>{const b=$("retry-load");b.disabled=true;try{if(await safeLoad())go(profile?"hoy":"perfil")}finally{b.disabled=false}};
 
 /* ---------- Navegación ---------- */
 $("nav").innerHTML=TABS.map(([k,t,d])=>`<button data-v="${k}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="${d}"/></svg>${t}</button>`).join("");
@@ -292,7 +300,7 @@ $("rsave").onclick=async()=>{
  else{const r=await sb.from("flexo_sessions").insert(row).select().single();error=r.error;sid=r.data?.id}
  if(!error&&items.length)({error}=await sb.from("flexo_session_items").insert(items.map(i=>({...i,session_id:sid}))));
  $("rsave").disabled=false;if(error)return msg("rmsg","No se pudo guardar. Tu sesión sigue en este dispositivo: inténtalo de nuevo cuando tengas conexión. ("+error.message+")","er");
- const was=editId;editId=null;draftClear();if(!was){gpsStop();gpsClear();T=null;tSave();$("tsum").textContent=""}await load();msg("rmsg","");if(!was&&sid){SH.id=sid;SH.fresh=true;go("compartir")}else go("historial")};
+ const was=editId;editId=null;draftClear();if(!was){gpsStop();gpsClear();T=null;tSave();$("tsum").textContent=""}await safeLoad();msg("rmsg","");if(!was&&sid){SH.id=sid;SH.fresh=true;go("compartir")}else go("historial")};
 /* ---------- GPS y ruta ---------- */
 const GPS={watch:null,pts:[],dist:0,wl:null,vis:null,n:0};
 const hav=(a,b)=>{const R=6371000,r=Math.PI/180,dl=(b[0]-a[0])*r,dg=(b[1]-a[1])*r,q=Math.sin(dl/2)**2+Math.cos(a[0]*r)*Math.cos(b[0]*r)*Math.sin(dg/2)**2;return 2*R*Math.asin(Math.sqrt(q))};
