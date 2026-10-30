@@ -319,8 +319,9 @@ function exDlg(){let d=$("expick");if(d)return d;d=document.createElement("dialo
  $("excl").onclick=()=>d.close();$("exq").oninput=e=>{exQ=e.target.value;exRender()};return d}
 function exRender(){const rItems=exCb?[]:routineItems(),used=new Set();
  if(!exCb&&exRow){const w=$("its");if(w)w.querySelectorAll(".it").forEach(r=>used.add(nrm(r.children[0].value)))}
- const{routine,mine,cat}=exView(exQ,rItems,used),rn=routines.find(x=>x.id===activeRoutine);let h="";
+ const{routine,mine,cat}=exView(exQ,rItems,used),rn=routines.find(x=>x.id===activeRoutine);let h="";const only=!exCb&&rItems.length>0;
  if(routine.length)h+=`<div class="exg">Mi rutina: ${esc(rn?rn.name:"")}</div>`+routine.map(i=>`<div class="exr"><button type="button" class="btn o s exi" data-n="${esc(i.name)}" data-c="${esc(i.category||"otro")}">${i.done?"✓ ":""}${esc(i.name)}</button></div>`).join("");
+ if(only){if(!routine.length)h+=`<p class="mu">No hay coincidencias en tu rutina.</p>`;h+=`<p class="mu" style="margin-top:14px">Solo se muestran los ejercicios de tu rutina. Para otro ejercicio, elige «Sin rutina» o edita la rutina en «Mis rutinas».</p>`;$("exb").innerHTML=h;return}
  if(mine.length){const by={};mine.forEach(e=>(by[e.category]=by[e.category]||[]).push(e));
   h+=`<div class="exg">Mis ejercicios</div>`+Object.keys(by).map(c=>`<div class="mu" style="margin:10px 0 4px">${esc(EX_CAT[c]||c)}</div>`+by[c].map(e=>`<div class="exr"><button type="button" class="btn o s exi" data-n="${esc(e.name)}" data-c="${esc(e.category)}">${esc(e.name)}</button><button type="button" class="btn o s" data-del="${esc(e.id)}" aria-label="Quitar ${esc(e.name)} de mis ejercicios">×</button></div>`).join("")).join("")}
  if(cat.length)h+=`<div class="exg">Catálogo</div>`+cat.map(([k,l])=>`<details${exQ?" open":""}><summary>${esc(EX_CAT[k])}</summary>${l.map(n=>`<div class="exr"><button type="button" class="btn o s exi" data-n="${esc(n)}" data-c="${k}">${esc(n)}</button></div>`).join("")}</details>`).join("");
