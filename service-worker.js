@@ -7,11 +7,11 @@
    - NUNCA intercepta ni guarda las llamadas a Supabase (datos, autenticación, API): lo personal
      siempre va directo a la red.
    Para publicar cambios de esta política, cambia el número de VERSION. */
-const VERSION = 'v1';
+const VERSION = 'v2';
 const CACHE = 'flexo-shell-' + VERSION;
 const SHELL = ['./', 'index.html', 'app.html', 'manifest.webmanifest',
                'icons/icon.svg', 'icons/apple-touch-icon.png', 'icons/icon-192.png', 'icons/icon-512.png'];
-const SUPABASE_JS = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';
+const SUPABASE_JS = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.118.0';
 const FONT_HOSTS = ['fonts.googleapis.com', 'fonts.gstatic.com'];
 const NAV_TIMEOUT_MS = 4000;
 
