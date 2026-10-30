@@ -295,7 +295,7 @@ function addSet(copy){const w=$("its"),last=w.lastElementChild,d=document.create
  d.innerHTML=`<input class="exn" aria-label="Ejercicio" placeholder="Elegir ejercicio" readonly value="${esc(copy&&last?last.children[0].value:"")}"><input aria-label="Repeticiones" placeholder="Reps" type="number" inputmode="numeric"><input aria-label="Peso" placeholder="Peso" type="number" step="any" inputmode="decimal"><select aria-label="Unidad"><option>kg</option><option>lb</option></select><input aria-label="Descanso en segundos" placeholder="Desc. (s)" type="number" inputmode="numeric">`;w.appendChild(d)}
 
 /* ---------- Biblioteca de ejercicios y rutinas ---------- */
-const EX_CAT={pecho:"Pecho",espalda:"Espalda",hombro:"Hombro",brazo:"Brazo",pierna:"Pierna",gluteo:"Glúteo",core:"Core"};
+const EX_CAT={pecho:"Pecho",espalda:"Espalda",hombro:"Hombro",brazo:"Brazo",pierna:"Pierna",gluteo:"Glúteo",core:"Core",otro:"Otros"};
 const EX_CATALOG={
  pecho:["Press de banca plano","Press de banca inclinado","Press con mancuernas","Aperturas con mancuernas","Cruces en polea","Fondos en paralelas","Flexiones de pecho"],
  espalda:["Dominadas","Jalón al pecho","Remo con barra","Remo con mancuerna","Remo en polea baja","Remo en máquina","Peso muerto convencional"],
@@ -643,12 +643,13 @@ document.addEventListener("click",e=>{const a=e.target.closest("[data-help]");if
 /* ---------- Compartir (imagen para historias) ---------- */
 const SH={id:null,bg:"dark",logros:true,route:true,trim:true,prog:"none",blob:null,tok:0,fresh:false};
 const nf=(v,d=1)=>Number(v).toLocaleString("es",{maximumFractionDigits:d}),kgOf=i=>i.data.weight==null?null:i.data.weight*(i.data.unit==="lb"?.4536:1);
+const exKey=i=>i.exercise_id||"n:"+nrm(i.name),exName=i=>{const e=i.exercise_id&&exercises.find(x=>x.id===i.exercise_id);return e?e.name:i.name.trim()};
 const paceS=m=>{const t=Math.round(m*60);return Math.floor(t/60)+":"+String(t%60).padStart(2,"0")};
 function logros(s){
  const pr=sessions.filter(x=>x.id!==s.id&&(x.session_date<s.session_date||(x.session_date===s.session_date&&String(x.created_at||"")<String(s.created_at||"")))),sp=pr.filter(x=>x.sport===s.sport),its=a=>a.flexo_session_items||[],out=[],n=SPORTS[s.sport]?.n||s.sport;
  if(!sp.length)out.push(`Tu primera sesión de ${n.toLowerCase()} en FLEXO`);
- else if(s.sport==="gimnasio"){const best={};sp.forEach(x=>its(x).forEach(i=>{const k=i.name.trim().toLowerCase(),w=kgOf(i);if(w!=null)best[k]=Math.max(best[k]||0,w)}));
-  const cur={};its(s).forEach(i=>{const k=i.name.trim().toLowerCase(),w=kgOf(i);if(w!=null&&w>(cur[k]?.w||0))cur[k]={w,n:i.name.trim()}});
+ else if(s.sport==="gimnasio"){const best={};sp.forEach(x=>its(x).forEach(i=>{const k=exKey(i),w=kgOf(i);if(w!=null)best[k]=Math.max(best[k]||0,w)}));
+  const cur={};its(s).forEach(i=>{const k=exKey(i),w=kgOf(i);if(w!=null&&w>(cur[k]?.w||0))cur[k]={w,n:exName(i)}});
   Object.entries(cur).forEach(([k,v])=>{if(best[k]!=null&&v.w>best[k])out.push(`Récord en ${v.n.toLowerCase()}: ${nf(v.w)} kg`)});}
  else if(s.sport==="running"||s.sport==="ciclismo"){const d=a=>its(a)[0]?.data||{},c=d(s);
   if(c.km>0){const mk=Math.max(0,...sp.map(x=>d(x).km||0));if(mk>0&&c.km>mk)out.push(`Tu distancia más larga: ${nf(c.km)} km`);
@@ -660,7 +661,7 @@ function logros(s){
  return out.slice(0,3)}
 function shareStats(s){const its=s.flexo_session_items||[],d0=its[0]?.data||{},min=s.duration_min,rpe={v:`${s.rpe}/10`,l:"Esfuerzo"};
  if(s.sport==="gimnasio"){const act=s.rest_seconds>0?{v:`${nf(Math.max(0,min-s.rest_seconds/60),0)} min`,l:"Tiempo activo"}:rpe;
-  return{hero:{v:nf(min,0),u:"min",l:"Tiempo entrenado"},row:[{v:nf(its.length,0),l:"Series"},{v:nf(new Set(its.map(i=>i.name.trim().toLowerCase())).size,0),l:"Ejercicios"},act]}}
+  return{hero:{v:nf(min,0),u:"min",l:"Tiempo entrenado"},row:[{v:nf(its.length,0),l:"Series"},{v:nf(new Set(its.map(i=>exKey(i))).size,0),l:"Ejercicios"},act]}}
  if(s.sport==="running"||s.sport==="ciclismo"){const ok=d0.km>0;
   return{hero:ok?{v:nf(d0.km),u:"km",l:"Distancia"}:{v:nf(min,0),u:"min",l:"Duración"},row:[{v:d0.min>0?paceS(d0.min):`${nf(min,0)} min`,l:"Tiempo"},...(ok&&d0.min>0?[{v:paceS(d0.min/d0.km),l:"Ritmo min/km"}]:[]),rpe]}}
  if(s.sport==="natacion")return{hero:d0.vueltas>0?{v:nf(d0.vueltas,0),u:"vueltas",l:"En la piscina"}:{v:nf(min,0),u:"min",l:"Duración"},row:[{v:`${nf(min,0)} min`,l:"Duración"},...(d0.largo>0?[{v:`${nf(d0.largo,0)} m`,l:"Largo piscina"}]:[]),rpe]};
@@ -673,8 +674,8 @@ function buildVisual(s,o){
   return{type:"route",pts,trimmed:tr}}
  if(s.sport==="gimnasio"&&o.prog&&o.prog!=="none"&&o.prog!=="vol"){
   const gy=sessions.filter(x=>x.sport==="gimnasio"&&(x.id===s.id||x.session_date<s.session_date||(x.session_date===s.session_date&&String(x.created_at||"")<String(s.created_at||"")))).sort((a,b)=>a.session_date.localeCompare(b.session_date)||String(a.created_at||"").localeCompare(String(b.created_at||"")));
-  const ser=k=>gy.map(x=>{const m=its(x).filter(i=>i.name.trim().toLowerCase()===k).map(kgOf).filter(v=>v!=null);return m.length?{d:x.session_date,y:Math.max(...m)}:null}).filter(Boolean);
-  const nm={};its(s).forEach(i=>{nm[i.name.trim().toLowerCase()]=i.name.trim()});
+  const ser=k=>gy.map(x=>{const m=its(x).filter(i=>exKey(i)===k).map(kgOf).filter(v=>v!=null);return m.length?{d:x.session_date,y:Math.max(...m)}:null}).filter(Boolean);
+  const nm={};its(s).forEach(i=>{nm[exKey(i)]=exName(i)});
   const mk=(name,v)=>{const a=v[0],b=v[v.length-1],days=Math.round((new Date(b.d+"T12:00:00")-new Date(a.d+"T12:00:00"))/864e5),wk_=Math.round(days/7);
    return{type:"prog",name,unit:"kg",ser:v,first:a.y,last:b.y,span:days>=10?`${wk_} semana${wk_===1?"":"s"}`:days>0?`${days} días`:""}};
   const prog=o.prog;
@@ -725,7 +726,7 @@ async function paintShare(){const s=sessions.find(x=>x.id===SH.id);if(!s)return;
  cv.style.cssText="width:100%;height:auto;display:block;border-radius:18px;border:1px solid var(--ln);background:repeating-conic-gradient(var(--ln) 0 25%,transparent 0 50%) 0 0/20px 20px";const v=$("shv");if(v){v.innerHTML="";v.appendChild(cv)}}
 function renderShare(){
  const s=sessions.find(x=>x.id===SH.id);if(!s)return go("historial");
- const its=s.flexo_session_items||[],ex={};its.forEach(i=>{ex[i.name.trim().toLowerCase()]=i.name.trim()});
+ const its=s.flexo_session_items||[],ex={};its.forEach(i=>{ex[exKey(i)]=exName(i)});
  const gps=s.sport==="running"||s.sport==="ciclismo",hasR=Array.isArray(s.route)&&s.route.length>=2;
  let extra="";
  if(gps)extra=hasR?`<div class="sel"><div><label for="shr">Ruta en la imagen</label><select id="shr">${opts([["1","Mostrar"],["0","Ocultar"]],SH.route?"1":"0")}</select></div><div><label for="sht">Ocultar inicio y final</label><select id="sht">${opts([["1","Sí, recomendado"],["0","No"]],SH.trim?"1":"0")}</select></div></div>`:`<p class="mu" style="font-size:14px">Esta sesión no tiene ruta. Para verla en la imagen, activa «Registrar ruta con GPS» antes de iniciar el entrenamiento.</p>`;
@@ -774,16 +775,16 @@ const card=(t,svg,note)=>`<div class="c"><h3>${t}</h3>${svg}${note?`<p class="mu
 function sportCards(S){
  const asc=S.slice().sort((a,b)=>a.session_date.localeCompare(b.session_date)),its=s=>s.flexo_session_items||[];
  if(PF.sport==="gimnasio"){
-  const cnt={},nm={};asc.forEach(s=>its(s).forEach(i=>{const k=i.name.trim().toLowerCase();cnt[k]=(cnt[k]||0)+1;nm[k]=nm[k]||i.name.trim()}));
+  const cnt={},nm={};asc.forEach(s=>its(s).forEach(i=>{const k=exKey(i);cnt[k]=(cnt[k]||0)+1;nm[k]=nm[k]||exName(i)}));
   const ks=Object.keys(cnt).sort((a,b)=>cnt[b]-cnt[a]);if(!ks.length)return card("Ejercicios","<p class=\"mu\" style=\"margin:0\">Aún no hay series registradas en este periodo.</p>");
   if(!ks.includes(PF.ex))PF.ex=ks[0];
   const kg=i=>i.data.weight==null?null:i.data.weight*(i.data.unit==="lb"?.4536:1),u=PF.met==="reps"?"repeticiones":"kg";
-  const pts=asc.map(s=>{const x=its(s).filter(i=>i.name.trim().toLowerCase()===PF.ex);if(!x.length)return null;let y;
+  const pts=asc.map(s=>{const x=its(s).filter(i=>exKey(i)===PF.ex);if(!x.length)return null;let y;
    if(PF.met==="peso"){const w=x.map(kg).filter(v=>v!=null);if(!w.length)return null;y=Math.max(...w)}else if(PF.met==="volumen")y=x.reduce((a,i)=>a+(kg(i)||0)*i.data.reps,0);else y=x.reduce((a,i)=>a+i.data.reps,0);
    return{x:shortD(s.session_date),y:fmtN(y),d:s.session_date}}).filter(Boolean);
-  const best=pts.reduce((m,p)=>!m||p.y>m.y?p:m,null),ML={peso:"Peso máximo",volumen:"Volumen (peso × reps)",reps:"Repeticiones totales"};
+  const best=pts.reduce((m,p)=>!m||p.y>m.y?p:m,null),ML={peso:"Peso máximo",volumen:"Volumen (peso × reps)",reps:"Repeticiones totales"};const dl2=pts.length>1?(()=>{const a=pts[pts.length-1],b=pts[pts.length-2],df=a.y-b.y,pc=b.y?Math.round(df/b.y*100):null;return`Última sesión: ${a.y} ${u} (${df>=0?"+":"−"}${fmtN(Math.abs(df))} ${u}${pc==null?"":`, ${df>=0?"+":"−"}${Math.abs(pc)} %`} vs la anterior). `})():"";
   return`<div class="sel"><div><label for="pfe">Ejercicio</label><select id="pfe">${opts(ks.map(k=>[k,nm[k]]),PF.ex)}</select></div><div><label for="pfm">Métrica</label><select id="pfm">${opts([["peso","Peso máximo"],["volumen","Volumen"],["reps","Repeticiones"]],PF.met)}</select></div></div>`+
-   card(`${esc(nm[PF.ex])}: ${ML[PF.met]}`,lineChart(pts,ML[PF.met]),best?`Mejor marca: ${best.y} ${u} (${fmtD(best.d)}). ${pts.length} sesiones con este ejercicio. Los pesos en lb se convierten a kg.`:"Este ejercicio no tiene pesos registrados.")}
+   card(`${esc(nm[PF.ex])}: ${ML[PF.met]}`,lineChart(pts,ML[PF.met]),best?dl2+`Mejor marca: ${best.y} ${u} (${fmtD(best.d)}). ${pts.length} sesiones con este ejercicio. Los pesos en lb se convierten a kg.`:"Este ejercicio no tiene pesos registrados.")}
  if(PF.sport==="running"||PF.sport==="ciclismo"){
   const r=asc.map(s=>({x:shortD(s.session_date),d:s.session_date,...(its(s)[0]?.data||{})})).filter(q=>q.km>0),p=r.filter(q=>q.min>0).map(q=>({x:q.x,y:Math.round(q.min/q.km*100)/100,d:q.d}));
   const far=r.reduce((m,q)=>!m||q.km>m.km?q:m,null),fast=p.reduce((m,q)=>!m||q.y<m.y?q:m,null);
