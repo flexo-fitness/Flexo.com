@@ -84,6 +84,7 @@ a{color:var(--ac)}.tm{display:flex;gap:16px;align-items:center;flex-wrap:wrap}.t
 
 <main id="app" class="hid">
 <div id="load-error" class="c hid" role="alert" aria-live="assertive"><b>No se pudieron cargar tus datos.</b><p id="load-error-text" class="mu">Comprueba tu conexión e inténtalo de nuevo.</p><button class="btn s" id="retry-load" type="button">Reintentar carga</button></div>
+<div id="sync-banner" class="c hid" role="status" aria-live="polite"><b id="sync-title"></b><p id="sync-text" class="mu"></p><button class="btn s" id="sync-now" type="button">Enviar ahora</button> <button class="btn o s hid" id="sync-drop" type="button">Descartar las que fallaron</button></div>
 <section id="v-hoy"></section>
 
 <section id="v-metas" class="hid">
@@ -213,7 +214,7 @@ $("ac").addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();$(
 $("avre").onclick=async()=>{try{const{error}=await sb.auth.resend({type:"signup",email:AUTH.email,options:{emailRedirectTo:redirectUrl()}});if(error)return msg("avm",authMsg(error),"er");msg("avm","Te enviamos otro correo. Revisa tu bandeja y la carpeta de spam.","ok");startCool(60)}catch(e){msg("avm",authMsg(e),"er")}};
 $("avback").onclick=()=>{clearInterval(AUTH.tm);$("averify").classList.add("hid");$("aform").classList.remove("hid");setMode("signup")};
 $("out").onclick=async()=>{if(dirty()&&!confirm("Tienes una sesión sin guardar. Se conserva en este dispositivo si vuelves a entrar con la misma cuenta. ¿Cerrar sesión?"))return;gpsStop();await sb.auth.signOut();U=null;show("auth")};
-async function enter(u){if(U&&U.id===u.id)return;U=u;$("pw").value="";tLoad();show("app");exercises=[];loadExercises();routines=[];activeRoutine="";loadRoutines();if(await safeLoad())go(profile?"hoy":"perfil")}
+async function enter(u){if(U&&U.id===u.id)return;U=u;$("pw").value="";tLoad();show("app");exercises=[];loadExercises();routines=[];activeRoutine="";loadRoutines();if(await safeLoad())go(profile?"hoy":"perfil");syncRender();syncQueue()}
 const LOAD_LABELS=["perfil","metas","sesiones","bloques del plan","sesiones planeadas","estado diario","pruebas"];
 async function load(){
  const results=await Promise.all([sb.from("flexo_profiles").select("*").eq("user_id",U.id).maybeSingle(),sb.from("flexo_goals").select("*").order("due_date"),sb.from("flexo_sessions").select("*,flexo_session_items(*)").order("session_date",{ascending:false}),sb.from("flexo_plan_blocks").select("*").order("start_date"),sb.from("flexo_planned_sessions").select("*").order("planned_date"),sb.from("flexo_daily_status").select("*").order("status_date",{ascending:false}).limit(400),sb.from("flexo_tests").select("*").order("test_date")]);
@@ -386,6 +387,35 @@ async function rClick(e){const t=e.target.closest&&e.target.closest("button");if
 $("rrut").onchange=e=>setActiveRoutine(e.target.value);
 $("rman").onclick=()=>{rEdit=null;const d=rDlg();rRender();if(typeof d.showModal==="function")d.showModal()};
 /* ---------- fin ejercicios y rutinas ---------- */
+/* ---------- Cola de guardado sin conexión ---------- */
+const qKey=()=>"flexo_queue_"+U.id;
+function qRead(){try{const a=JSON.parse(localStorage.getItem(qKey())||"[]");return Array.isArray(a)?a:[]}catch(e){return[]}}
+function qWrite(a){try{localStorage.setItem(qKey(),JSON.stringify(a));return true}catch(e){return false}}
+const isNetErr=e=>{const m=String((e&&e.message)||e||"");return(typeof navigator!=="undefined"&&navigator.onLine===false)||/failed to fetch|networkerror|network request failed|load failed|fetch failed|timeout|timed out/i.test(m)};
+const newId=()=>(typeof crypto!=="undefined"&&crypto.randomUUID)?crypto.randomUUID():"xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g,c=>{const r=Math.random()*16|0;return(c==="x"?r:r&3|8).toString(16)});
+function syncRender(text){const b=$("sync-banner");if(!b)return;const q=U?qRead():[];
+ if(!q.length){b.classList.add("hid");return}
+ const bad=q.filter(x=>x.error);
+ $("sync-title").textContent=q.length===1?"1 sesión pendiente de enviar":q.length+" sesiones pendientes de enviar";
+ $("sync-text").textContent=text||(bad.length?"No se pudo enviar: "+bad[0].error+". Puedes reintentar o descartar las que fallaron.":"Está guardada en este dispositivo y se enviará sola cuando haya conexión.");
+ $("sync-drop").classList.toggle("hid",!bad.length);b.classList.remove("hid")}
+let syncing=false;
+async function syncQueue(force){if(syncing||!U)return 0;syncing=true;let sent=0;
+ try{for(const it of qRead()){
+   if(it.error&&!force)continue;
+   let r;try{r=await sb.rpc("flexo_create_session",{p_session:{...it.row,id:it.id},p_items:it.items})}catch(e){r={error:e}}
+   if(!r.error){qWrite(qRead().filter(x=>x.id!==it.id));sent++;continue}
+   if(isNetErr(r.error))break;
+   qWrite(qRead().map(x=>x.id===it.id?{...x,error:r.error.message||"error"}:x))}}
+ finally{syncing=false}
+ if(sent)await safeLoad();
+ syncRender();return sent}
+$("sync-now").onclick=async()=>{const b=$("sync-now");b.disabled=true;try{await syncQueue(true)}finally{b.disabled=false}};
+$("sync-drop").onclick=()=>{const q=qRead();if(!q.some(x=>x.error))return;
+ if(!confirm("¿Descartar las sesiones que no se pudieron enviar? Se borrarán de este dispositivo."))return;qWrite(q.filter(x=>!x.error));syncRender()};
+window.addEventListener("online",()=>{syncQueue()});
+document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible")syncQueue()});
+/* ---------- fin cola ---------- */
 
 const rpeLoad=()=>{$("rrv").textContent=$("rr").value;const m=num($("rm").value);$("rload").textContent=m?`Carga de la sesión: ${m*$("rr").value} (duración × RPE)`:""};
 $("rr").oninput=$("rm").oninput=rpeLoad;$("rs").onchange=()=>{regSport();fillPlanned();tRender()};$("rd").onchange=()=>fillPlanned();$("rp").onchange=()=>{const p=planned.find(x=>x.id===$("rp").value);if(p){if(!$("rm").value){$("rm").value=p.duration_min;rpeLoad()}$("rg").value=p.goal_id}};
@@ -397,13 +427,15 @@ $("rsave").onclick=async()=>{
  else if(s.f.length){const data={};$("rf").querySelectorAll("[data-k]").forEach(i=>{if(i.value!=="")data[i.dataset.k]=+i.value});if(Object.keys(data).length)items.push({name:s.n,data})}
  if(s.gym&&!items.length)return msg("rmsg","Añade al menos una serie con ejercicio y repeticiones.","er");
  const row={session_date:$("rd").value,sport:sp,duration_min:dur,rpe:+$("rr").value,notes:$("rn").value.trim()||null,goal_id:$("rg").value||null,planned_session_id:$("rp").value||null,...(T?.route&&!editId?{route:T.route}:{}),rest_seconds:s.gym?items.reduce((a,i)=>a+(i.data.rest||0),0):0};
- const button=$("rsave");button.disabled=true;let sid=editId,error=null;
+ const button=$("rsave");button.disabled=true;let sid=editId,error=null;const cid=editId?null:newId();
  try{
   const r=editId?await sb.rpc("flexo_update_session",{p_session_id:editId,p_session:row,p_items:items})
-               :await sb.rpc("flexo_create_session",{p_session:row,p_items:items});
+               :await sb.rpc("flexo_create_session",{p_session:{...row,id:cid},p_items:items});
   error=r.error;if(!editId&&!error)sid=r.data&&r.data.id;
  }catch(e){error=e}
  finally{button.disabled=false}
+ if(error&&!editId&&isNetErr(error)){const q=qRead();q.push({id:cid,row,items,savedAt:new Date().toISOString()});
+   if(qWrite(q)){draftClear();gpsStop();gpsClear();T=null;tSave();$("tsum").textContent="";msg("rmsg","");syncRender("Sin conexión: tu sesión quedó guardada en este dispositivo y se enviará sola cuando vuelvas a tener internet.");go("historial");return}}
  if(error)return msg("rmsg","No se pudo guardar. Tu sesión sigue en este dispositivo: inténtalo de nuevo. ("+(error.message||"error de conexión")+")","er");
  const was=editId;editId=null;draftClear();if(!was){gpsStop();gpsClear();T=null;tSave();$("tsum").textContent=""}
  const ok=await safeLoad();msg("rmsg","");
