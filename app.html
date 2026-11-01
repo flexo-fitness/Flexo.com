@@ -62,7 +62,7 @@ a{color:var(--ac)}.tm{display:flex;gap:16px;align-items:center;flex-wrap:wrap}.t
 #expick[open],#rutdlg[open]{display:flex;flex-direction:column}#expick::backdrop,#rutdlg::backdrop{background:rgba(0,0,0,.6)}
 .exh{padding:16px 16px 10px;border-bottom:1px solid var(--ln)}.exb{padding:4px 16px 20px;overflow:auto;-webkit-overflow-scrolling:touch}
 .exg{font:600 12px 'Instrument Sans',sans-serif;color:var(--mu);text-transform:uppercase;letter-spacing:.06em;margin:16px 0 6px}
-.exr{display:flex;gap:6px;margin-bottom:6px}.exr .exi{flex:1;text-align:left}.exr input,.exr select{flex:1;min-width:0}
+.exr{display:flex;gap:6px;margin-bottom:6px}.exr .exi{flex:1;text-align:left}.exr select.exc{flex:0 0 118px}.exr input,.exr select{flex:1;min-width:0}
 #expick summary{cursor:pointer;padding:10px 0;font-weight:600}
 </style></head><body>
 <div class="w">
@@ -305,7 +305,7 @@ const EX_CATALOG={
  pierna:["Sentadilla","Prensa de piernas","Extensión de cuádriceps","Curl femoral","Peso muerto rumano","Zancadas","Sentadilla búlgara","Elevación de talones"],
  gluteo:["Hip thrust","Puente de glúteo","Patada de glúteo en polea","Abducción de cadera en máquina","Sentadilla sumo"],
  core:["Plancha","Plancha lateral","Crunch abdominal","Elevación de piernas","Rueda abdominal","Giro ruso"]};
-let exercises=[],exRow=null,exQ="",exCb=null,routines=[],activeRoutine="",rEdit=null;
+let exercises=[],exRow=null,exQ="",exCb=null,exUnOpen=false,routines=[],activeRoutine="",rEdit=null;
 const nrm=s=>String(s??"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().replace(/\s+/g," ").trim();
 async function loadExercises(){try{const{data,error}=await sb.from("flexo_exercises").select("id,name,category").order("name");if(error)throw error;exercises=data||[]}catch(e){console.warn("FLEXO: no se pudo cargar tu biblioteca de ejercicios",e);exercises=[]}}
 const routineItems=()=>{const r=routines.find(x=>x.id===activeRoutine);return r?r.items:[]};
@@ -316,25 +316,30 @@ function exView(q,rItems=[],used=new Set()){const nq=nrm(q),inR=new Set(rItems.m
  return{routine,mine,cat}}
 function exDlg(){let d=$("expick");if(d)return d;d=document.createElement("dialog");d.id="expick";d.setAttribute("aria-label","Elegir ejercicio");
  d.innerHTML=`<div class="exh"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><b>Elegir ejercicio</b><button class="btn o s" type="button" id="excl">Cerrar</button></div><input id="exq" type="search" placeholder="Buscar ejercicio" aria-label="Buscar ejercicio" autocomplete="off" style="margin-top:10px"></div><div class="exb" id="exb"></div>`;
- document.body.appendChild(d);d.addEventListener("click",exClick);d.addEventListener("click",e=>{if(e.target===d)d.close()});
+ document.body.appendChild(d);d.addEventListener("click",exClick);d.addEventListener("change",exChange);d.addEventListener("click",e=>{if(e.target===d)d.close()});
  $("excl").onclick=()=>d.close();$("exq").oninput=e=>{exQ=e.target.value;exRender()};return d}
 function exRender(){const rItems=exCb?[]:routineItems(),used=new Set();
  if(!exCb&&exRow){const w=$("its");if(w)w.querySelectorAll(".it").forEach(r=>used.add(nrm(r.children[0].value)))}
  const{routine,mine,cat}=exView(exQ,rItems,used),rn=routines.find(x=>x.id===activeRoutine);let h="";const only=!exCb&&rItems.length>0;
  if(routine.length)h+=`<div class="exg">Mi rutina: ${esc(rn?rn.name:"")}</div>`+routine.map(i=>`<div class="exr"><button type="button" class="btn o s exi" data-n="${esc(i.name)}" data-c="${esc(i.category||"otro")}">${i.done?"✓ ":""}${esc(i.name)}</button></div>`).join("");
  if(only){if(!routine.length)h+=`<p class="mu">No hay coincidencias en tu rutina.</p>`;h+=`<p class="mu" style="margin-top:14px">Solo se muestran los ejercicios de tu rutina. Para otro ejercicio, elige «Sin rutina» o edita la rutina en «Mis rutinas».</p>`;$("exb").innerHTML=h;return}
- if(mine.length){const by={};mine.forEach(e=>(by[e.category]=by[e.category]||[]).push(e));
-  h+=`<div class="exg">Mis ejercicios</div>`+Object.keys(by).map(c=>`<div class="mu" style="margin:10px 0 4px">${esc(EX_CAT[c]||c)}</div>`+by[c].map(e=>`<div class="exr"><button type="button" class="btn o s exi" data-n="${esc(e.name)}" data-c="${esc(e.category)}">${esc(e.name)}</button><button type="button" class="btn o s" data-del="${esc(e.id)}" aria-label="Quitar ${esc(e.name)} de mis ejercicios">×</button></div>`).join("")).join("")}
+ if(mine.length){const by={},un=[];mine.forEach(e=>{const c=EX_CAT[e.category]&&e.category!=="otro"?e.category:null;c?(by[c]=by[c]||[]).push(e):un.push(e)});
+  const row=(e,sel)=>`<div class="exr"><button type="button" class="btn o s exi" data-n="${esc(e.name)}" data-c="${esc(e.category)}">${esc(e.name)}</button>${sel?`<select class="exc" data-cat="${esc(e.id)}" aria-label="Categoría de ${esc(e.name)}"><option value="">Categoría…</option>${Object.entries(EX_CAT).filter(([k])=>k!=="otro").map(([k,l])=>`<option value="${k}">${l}</option>`).join("")}</select>`:""}<button type="button" class="btn o s" data-del="${esc(e.id)}" aria-label="Quitar ${esc(e.name)} de mis ejercicios">×</button></div>`;
+  h+=`<div class="exg">Mis ejercicios</div>`+Object.keys(by).map(c=>`<div class="mu" style="margin:10px 0 4px">${esc(EX_CAT[c])}</div>`+by[c].map(e=>row(e,false)).join("")).join("")+(un.length?`<details${exQ||exUnOpen?" open":""}><summary>Sin categoría (${un.length})</summary>${un.map(e=>row(e,true)).join("")}</details>`:"")}
  if(cat.length)h+=`<div class="exg">Catálogo</div>`+cat.map(([k,l])=>`<details${exQ?" open":""}><summary>${esc(EX_CAT[k])}</summary>${l.map(n=>`<div class="exr"><button type="button" class="btn o s exi" data-n="${esc(n)}" data-c="${k}">${esc(n)}</button></div>`).join("")}</details>`).join("");
  if(!routine.length&&!mine.length&&!cat.length)h+=`<p class="mu">No hay coincidencias. Puedes agregarlo como ejercicio propio.</p>`;
- h+=`<div class="exg">Agregar ejercicio propio</div><div class="exr"><input id="exnn" placeholder="Nombre del ejercicio" aria-label="Nombre del ejercicio nuevo" maxlength="80"><select id="exnc" aria-label="Categoría">${Object.entries(EX_CAT).map(([k,l])=>`<option value="${k}">${l}</option>`).join("")}</select></div><div class="exr"><button type="button" class="btn s" id="exadd">Agregar y elegir</button>${exCb?"":`<button type="button" class="btn o s" id="exman">Escribir a mano</button>`}</div><div class="msg" id="exmsg" role="status"></div>`;
+ h+=`<div class="exg">Agregar ejercicio propio</div><div class="exr"><input id="exnn" placeholder="Nombre del ejercicio" aria-label="Nombre del ejercicio nuevo" maxlength="80"><select id="exnc" aria-label="Categoría">${Object.entries(EX_CAT).filter(([k])=>k!=="otro").map(([k,l])=>`<option value="${k}">${l}</option>`).join("")}</select></div><div class="exr"><button type="button" class="btn s" id="exadd">Agregar y elegir</button>${exCb?"":`<button type="button" class="btn o s" id="exman">Escribir a mano</button>`}</div><div class="msg" id="exmsg" role="status"></div>`;
  $("exb").innerHTML=h}
-function exOpen(row){exCb=null;exRow=row;exQ="";const d=exDlg();if(typeof d.showModal!=="function"){row.children[0].readOnly=false;return}$("exq").value="";exRender();d.showModal()}
-function exOpenFor(cb){exCb=cb;exRow=null;exQ="";const d=exDlg();if(typeof d.showModal!=="function")return;$("exq").value="";exRender();d.showModal()}
+function exOpen(row){exCb=null;exUnOpen=false;exRow=row;exQ="";const d=exDlg();if(typeof d.showModal!=="function"){row.children[0].readOnly=false;return}$("exq").value="";exRender();d.showModal()}
+function exOpenFor(cb){exCb=cb;exUnOpen=false;exRow=null;exQ="";const d=exDlg();if(typeof d.showModal!=="function")return;$("exq").value="";exRender();d.showModal()}
 async function exPick(name,cat){const cb=exCb;exCb=null;
  if(cb){$("expick").close();cb(name,cat)}
  else{const row=exRow,inp=row&&row.children[0];if(!inp)return;inp.value=name;inp.readOnly=true;inp.dispatchEvent(new Event("input",{bubbles:true}));$("expick").close();if(row.children[1])row.children[1].focus()}
  if(!exercises.some(x=>nrm(x.name)===nrm(name))){try{const{data,error}=await sb.from("flexo_exercises").insert({name,category:cat}).select("id,name,category").single();if(error)throw error;exercises.push(data)}catch(e){console.warn("FLEXO: no se pudo guardar el ejercicio en tu biblioteca",e)}}}
+async function exChange(e){const s=e.target;if(!s||!s.dataset||!s.dataset.cat||!s.value)return;
+ const{error}=await sb.from("flexo_exercises").update({category:s.value}).eq("id",s.dataset.cat);
+ if(error){s.value="";return msg("exmsg","No se pudo cambiar la categoría: "+error.message,"er")}
+ const x=exercises.find(z=>z.id===s.dataset.cat);if(x)x.category=s.value;exUnOpen=true;exRender()}
 async function exClick(e){const t=e.target.closest&&e.target.closest("button");if(!t)return;
  if(t.dataset.n!==undefined)return exPick(t.dataset.n,t.dataset.c);
  if(t.dataset.del){if(!confirm("¿Quitar este ejercicio de tus ejercicios? Tus sesiones anteriores no cambian."))return;
